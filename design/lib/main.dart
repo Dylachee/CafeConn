@@ -11,6 +11,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
@@ -32,22 +33,22 @@ class CafeConnectApp extends StatelessWidget {
         builder: (context, state, _) {
           final router = GoRouter(
             refreshListenable: state,
-            initialLocation: '/admin',
+            initialLocation: '/login',
             routes: [
               GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+              GoRoute(path: '/qr', builder: (_, __) => const QrEntryScreen()),
               GoRoute(path: '/client', builder: (_, __) => const CustomerMenuScreen()),
               GoRoute(path: '/cart', builder: (_, __) => const CartScreen()),
+              GoRoute(path: '/status', builder: (_, __) => const OrderStatusScreen()),
               GoRoute(path: '/tables', builder: (_, __) => const WaiterTableGridScreen()),
-              GoRoute(path: '/table-check', builder: (_, __) => const TableCheckScreen()),
               GoRoute(path: '/waiter-menu', builder: (_, __) => const WaiterOrderScreen()),
-              GoRoute(path: '/orders', builder: (_, __) => const UnifiedOrderFeedScreen()),
+              GoRoute(path: '/kitchen', builder: (_, __) => const OrderFeedScreen(feed: FeedType.kitchen)),
+              GoRoute(path: '/bar', builder: (_, __) => const OrderFeedScreen(feed: FeedType.bar)),
               GoRoute(path: '/chats', builder: (_, __) => const StaffChatListScreen()),
               GoRoute(path: '/chat', builder: (_, __) => const StaffChatScreen()),
               GoRoute(path: '/manager', builder: (_, __) => const ManagerDashboardScreen()),
-              GoRoute(path: '/admin', builder: (_, __) => const AdminPanelScreen()),
               GoRoute(path: '/team', builder: (_, __) => const TeamManagementScreen()),
               GoRoute(path: '/menu-admin', builder: (_, __) => const MenuManagementScreen()),
-              GoRoute(path: '/status', builder: (_, __) => const OrderStatusScreen()),
             ],
           );
           return MaterialApp.router(
@@ -103,15 +104,14 @@ class AppTheme {
   }
 }
 
-enum UserRole { client, waiter, cook, bartender, manager, admin }
-enum TableStatus { free, occupied, awaitingPayment, ready, late, newOrder }
+enum UserRole { client, waiter, cook, bartender, manager, smm }
+enum TableStatus { free, newOrder, occupied, ready, late }
 enum OrderStatus { accepted, cooking, ready, completed }
 enum FeedType { kitchen, bar }
 enum ButtonKind { primary, secondary, ghost, dark }
 
 class AppUser {
-  AppUser(this.id, this.name, this.role, this.login, this.password, this.status, {this.online = true, DateTime? createdAt}) 
-    : createdAt = createdAt ?? DateTime.now();
+  AppUser(this.id, this.name, this.role, this.login, this.password, this.status, {this.online = true});
   final String id;
   String name;
   UserRole role;
@@ -119,7 +119,6 @@ class AppUser {
   String password;
   String status;
   bool online;
-  final DateTime createdAt;
 }
 
 class CafeTable {
@@ -158,11 +157,10 @@ class MenuItem {
 }
 
 class CartLine {
-  CartLine({required this.item, this.quantity = 1, this.modifiers = '', this.sent = false});
+  CartLine({required this.item, this.quantity = 1, this.modifiers = ''});
   final MenuItem item;
   int quantity;
   String modifiers;
-  bool sent;
   double get total => item.price * quantity;
 }
 
@@ -263,11 +261,9 @@ class CafeState extends ChangeNotifier {
       ..clear()
       ..addAll(_api.seedMessages(groups));
     final cachedTable = _box.get('table') as int?;
-    currentTable = cachedTable != null ? tables.firstWhereOrNull((t) => t.number == cachedTable) : tables.firstOrNull;
-    currentTable ??= tables.firstOrNull;
+    if (cachedTable != null) currentTable = tables.firstWhereOrNull((t) => t.number == cachedTable);
     _retryTimer = Timer.periodic(5.seconds, (_) => retryQueuedOrders());
     _fakeRealtimeTimer = Timer.periodic(12.seconds, (_) => simulateRealtimeOrder());
-    currentUser = users.firstWhereOrNull((u) => u.role == UserRole.admin);
     notifyListeners();
   }
 
@@ -276,6 +272,43 @@ class CafeState extends ChangeNotifier {
     _retryTimer?.cancel();
     _fakeRealtimeTimer?.cancel();
     super.dispose();
+  }
+
+  Future<bool> login(String login, String password) async {
+    await Future.delayed(250.ms);
+    final user = users.firstWhereOrNull((u) => u.login == login && u.password == password);
+    if (user == null) {
+      HapticFeedback.heavyImpact();
+      return false;
+    }
+    currentUser = user;
+    HapticFeedback.lightImpact();
+    notifyListeners();
+    return true;
+  }
+
+  String roleHome(UserRole role) {
+    return switch (role) {
+      UserRole.client => '/qr',
+      UserRole.waiter => '/tables',
+      UserRole.cook => '/kitchen',
+      UserRole.bartender => '/bar',
+      UserRole.manager || UserRole.smm => '/manager',
+    };
+  }
+
+  bool validateTableCode(String code) {
+    final number = int.tryParse(code);
+    final table = tables.firstWhereOrNull((t) => t.number == number);
+    if (table == null) {
+      HapticFeedback.heavyImpact();
+      return false;
+    }
+    currentTable = table;
+    _box.put('table', table.number);
+    HapticFeedback.lightImpact();
+    notifyListeners();
+    return true;
   }
 
   List<String> get categories => ['Все', ...menu.map((m) => m.category).toSet()];
@@ -320,42 +353,27 @@ class CafeState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<CafeOrder> submitOrder({String? tableId, FeedType? onlyFor}) async {
+  Future<CafeOrder> submitOrder({String? tableId}) async {
     final table = tableId == null ? currentTable ?? tables[3] : tables.firstWhere((t) => t.id == tableId);
     final source = tableId == null ? cart : tableCart(table.id);
-    
-    final toSend = source.where((l) => !l.sent).where((l) {
-      if (onlyFor == null) return true;
-      final isDrink = l.item.category == 'Напитки' || l.item.category == 'Кофе';
-      return onlyFor == FeedType.bar ? isDrink : !isDrink;
-    }).toList();
-
-    if (toSend.isEmpty) return orders.last;
-
-    final food = toSend.where((l) => l.item.category != 'Напитки' && l.item.category != 'Кофе').toList();
-    final drinks = toSend.where((l) => l.item.category == 'Напитки' || l.item.category == 'Кофе').toList();
-    
-    CafeOrder? last;
-    if (food.isNotEmpty) {
-      last = _makeOrder(table, food.map((l) => CartLine(item: l.item, quantity: l.quantity, modifiers: l.modifiers, sent: true)).toList(), FeedType.kitchen);
-      orders.add(last);
-      for (var l in food) l.sent = true;
+    final lines = source.map((l) => CartLine(item: l.item, quantity: l.quantity, modifiers: l.modifiers)).toList();
+    final food = lines.where((l) => l.item.category != 'Напитки' && l.item.category != 'Кофе').toList();
+    final drinks = lines.where((l) => l.item.category == 'Напитки' || l.item.category == 'Кофе').toList();
+    CafeOrder last = _makeOrder(table, lines, FeedType.kitchen);
+    if (!online) {
+      offlineQueue.add(last);
+    } else {
+      if (food.isNotEmpty) orders.add(_makeOrder(table, food, FeedType.kitchen));
+      if (drinks.isNotEmpty) orders.add(_makeOrder(table, drinks, FeedType.bar));
+      last = orders.last;
     }
-    if (drinks.isNotEmpty) {
-      last = _makeOrder(table, drinks.map((l) => CartLine(item: l.item, quantity: l.quantity, modifiers: l.modifiers, sent: true)).toList(), FeedType.bar);
-      orders.add(last);
-      for (var l in drinks) l.sent = true;
-    }
-
-    table.status = TableStatus.occupied;
-    if (last != null) {
-      table.currentOrderId = last.id;
-      addSystemMessage(last);
-    }
-    
+    table.status = TableStatus.newOrder;
+    table.currentOrderId = last.id;
+    source.clear();
+    addSystemMessage(last);
     HapticFeedback.mediumImpact();
     notifyListeners();
-    return last ?? orders.last;
+    return last;
   }
 
   CafeOrder _makeOrder(CafeTable table, List<CartLine> lines, FeedType feed) {
@@ -369,18 +387,16 @@ class CafeState extends ChangeNotifier {
     );
   }
 
-  void discussInChat(CafeOrder order, ChatGroup group, String comment) {
+  void markReady(CafeOrder order) {
+    order.status = OrderStatus.ready;
     final table = tables.firstWhereOrNull((t) => t.id == order.tableId);
-    final text = '#discuss Заказ Стол ${table?.number.toString().padLeft(2, '0') ?? '??'}: ${order.items.map((e) => '${e.quantity}x ${e.item.name}').join(', ')}\n\n$comment';
-    messages.add(ChatMessage(
-      id: 'm${messages.length + 1}',
-      groupId: group.id,
-      senderId: currentUser?.id ?? 'system',
-      text: text,
-      tags: const ['#discuss'],
-      timestamp: DateTime.now(),
-    ));
+    table?.status = TableStatus.ready;
+    HapticFeedback.lightImpact();
     notifyListeners();
+    Timer(900.ms, () {
+      order.status = OrderStatus.completed;
+      notifyListeners();
+    });
   }
 
   void addSystemMessage(CafeOrder order) {
@@ -525,26 +541,19 @@ class CafeState extends ChangeNotifier {
     message.reactions = [...message.reactions, reaction];
     notifyListeners();
   }
-
-  void markReady(CafeOrder order) {
-    order.status = order.status == OrderStatus.ready ? OrderStatus.completed : OrderStatus.ready;
-    HapticFeedback.mediumImpact();
-    notifyListeners();
-  }
 }
 
 class MockCafeApi {
   List<AppUser> seedUsers() => [
-        AppUser('admin', 'Администратор', UserRole.admin, 'admin', 'admin', 'В системе'),
-        AppUser('manager', 'Алекс Ривера', UserRole.manager, 'manager', '1234', 'Онлайн'),
-        AppUser('waiter', 'Елена Соколова', UserRole.waiter, 'waiter', '1234', 'На смене'),
+        AppUser('client', 'Гость', UserRole.client, 'client', '1234', 'За столом'),
+        AppUser('waiter', 'Елена Соколова', UserRole.waiter, 'waiter', '1234', 'Смена активна'),
         AppUser('cook', 'Марко Чен', UserRole.cook, 'cook', '1234', 'На кухне'),
         AppUser('bar', 'Сара Дженкинс', UserRole.bartender, 'bar', '1234', 'За баром'),
-        AppUser('client', 'Гость', UserRole.client, 'client', '1234', 'За столом'),
+        AppUser('manager', 'Алекс Ривера', UserRole.manager, 'manager', '1234', 'Онлайн'),
       ];
 
   List<CafeTable> seedTables() => List.generate(12, (i) {
-        final statuses = [TableStatus.free, TableStatus.occupied, TableStatus.awaitingPayment, TableStatus.ready, TableStatus.late];
+        final statuses = [TableStatus.free, TableStatus.occupied, TableStatus.newOrder, TableStatus.ready, TableStatus.late];
         final status = statuses[i % statuses.length];
         return CafeTable('t${i + 1}', i + 1, AppTheme.primary, status, status == TableStatus.free ? 0 : (i % 4) + 1);
       });
@@ -562,10 +571,9 @@ class MockCafeApi {
 
   List<ChatGroup> seedGroups(List<AppUser> staff) => [
         ChatGroup('g1', 'Общий чат', null, staff.map((s) => s.id).toList(), pinned: true),
-        ChatGroup('g2', 'Кухня', FeedType.kitchen, staff.where((s) => s.role == UserRole.cook || s.role == UserRole.manager || s.role == UserRole.admin).map((s) => s.id).toList(), pinned: true),
-        ChatGroup('g3', 'Бар', FeedType.bar, staff.where((s) => s.role == UserRole.bartender || s.role == UserRole.manager || s.role == UserRole.admin).map((s) => s.id).toList()),
+        ChatGroup('g2', 'Кухня', FeedType.kitchen, staff.where((s) => s.role != UserRole.bartender).map((s) => s.id).toList(), pinned: true),
+        ChatGroup('g3', 'Бар', FeedType.bar, staff.where((s) => s.role != UserRole.cook).map((s) => s.id).toList()),
       ];
-
 
   List<ChatMessage> seedMessages(List<ChatGroup> groups) => [
         ChatMessage(id: 'm1', groupId: groups[0].id, senderId: 'waiter', text: '#orders Стол 04 сделал заказ, проверяю напитки.', tags: ['#orders'], timestamp: DateTime.now().subtract(22.minutes)),
@@ -585,30 +593,28 @@ extension Money on double {
 }
 
 String roleLabel(UserRole role) => switch (role) {
-      UserRole.admin => 'Админ',
-      UserRole.manager => 'Менеджер',
+      UserRole.client => 'Клиент',
       UserRole.waiter => 'Официант',
       UserRole.cook => 'Повар',
       UserRole.bartender => 'Бармен',
-      UserRole.client => 'Клиент',
+      UserRole.manager => 'Менеджер',
+      UserRole.smm => 'SMM',
     };
 
 Color statusColor(TableStatus status) => switch (status) {
       TableStatus.free => Colors.grey,
+      TableStatus.newOrder => AppTheme.warning,
       TableStatus.occupied => AppTheme.primary,
-      TableStatus.awaitingPayment => AppTheme.warning,
       TableStatus.ready => AppTheme.success,
       TableStatus.late => AppTheme.danger,
-      TableStatus.newOrder => AppTheme.primary,
     };
 
 String statusLabel(TableStatus status) => switch (status) {
       TableStatus.free => 'Свободен',
-      TableStatus.occupied => 'Занят',
-      TableStatus.awaitingPayment => 'Счёт',
-      TableStatus.ready => 'Готово',
-      TableStatus.late => 'Задержка',
       TableStatus.newOrder => 'Новый',
+      TableStatus.occupied => 'Занят',
+      TableStatus.ready => 'Готово',
+      TableStatus.late => 'Поздно',
     };
 
 class AppButton extends StatefulWidget {
@@ -852,62 +858,193 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final login = TextEditingController();
-  final pass = TextEditingController();
-  bool loading = false;
-  String? error;
+  final login = TextEditingController(text: 'client');
+  final password = TextEditingController(text: '1234');
+  bool error = false;
 
   @override
   Widget build(BuildContext context) {
-    final state = context.read<CafeState>();
-    return Scaffold(
-      body: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 400),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.local_cafe, size: 80, color: AppTheme.primary),
-              const SizedBox(height: 24),
-              Text('CafeConnect', style: Theme.of(context).textTheme.headlineLarge),
-              const SizedBox(height: 32),
-              AppTextField(controller: login, label: 'Логин'),
-              const SizedBox(height: 16),
-              AppTextField(controller: pass, label: 'Пароль', obscure: true),
-              if (error != null) ...[
-                const SizedBox(height: 16),
-                Text(error!, style: const TextStyle(color: AppTheme.danger)),
+    return AppScaffold(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 44),
+          Text('CafeConnect', style: Theme.of(context).textTheme.headlineLarge),
+          const SizedBox(height: 6),
+          const Text('Тёплая автоматизация для любимого кафе', style: TextStyle(color: AppTheme.secondary)),
+          const SizedBox(height: 34),
+          AppCard(
+            child: Column(
+              children: [
+                AppTextField(controller: login, label: 'Логин'),
+                const SizedBox(height: 12),
+                AppTextField(controller: password, label: 'Пароль', obscure: true),
+                if (error) const Padding(padding: EdgeInsets.only(top: 10), child: Text('Неверный логин или пароль', style: TextStyle(color: AppTheme.danger))),
+                const SizedBox(height: 18),
+                AppButton(
+                  label: 'Войти',
+                  icon: Icons.login,
+                  onPressed: () async {
+                    final state = context.read<CafeState>();
+                    final ok = await state.login(login.text.trim(), password.text.trim());
+                    if (!mounted) return;
+                    if (ok) context.go(state.roleHome(state.currentUser!.role)); else setState(() => error = true);
+                  },
+                ),
               ],
-              const SizedBox(height: 24),
-              AppButton(
-                label: 'Войти',
-                loading: loading,
-                onPressed: () async {
-                  setState(() { loading = true; error = null; });
-                  await Future.delayed(800.ms);
-                  final user = state.users.firstWhereOrNull((u) => u.login == login.text && u.password == pass.text);
-                  if (user != null) {
-                    state.currentUser = user;
-                    state.refresh();
-                    if (user.role == UserRole.admin) context.go('/admin');
-                    else if (user.role == UserRole.manager) context.go('/manager');
-                    else if (user.role == UserRole.waiter) context.go('/tables');
-                    else if (user.role == UserRole.cook || user.role == UserRole.bartender) context.go('/orders');
-                    else context.go('/client');
-                  } else {
-                    setState(() { loading = false; error = 'Неверный логин или пароль'; });
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              Text('Демо: admin / admin', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
-            ],
+            ),
           ),
-        ),
+          const SizedBox(height: 18),
+          Wrap(spacing: 8, runSpacing: 8, children: ['client', 'waiter', 'cook', 'bar', 'manager'].map((name) => CategoryChip(label: name, active: login.text == name, onTap: () => setState(() => login.text = name))).toList()),
+          const Spacer(),
+          AppButton(label: 'Симулировать отсутствие сети', icon: Icons.wifi_off, kind: ButtonKind.secondary, onPressed: () => context.read<CafeState>().toggleOnline()),
+        ],
       ),
     );
   }
+}
+
+class QrEntryScreen extends StatefulWidget {
+  const QrEntryScreen({super.key});
+  @override
+  State<QrEntryScreen> createState() => _QrEntryScreenState();
+}
+
+class _QrEntryScreenState extends State<QrEntryScreen> {
+  bool success = false;
+  bool manual = false;
+  String code = '';
+  bool error = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: _ScannerBackdrop()),
+          Center(
+            child: AnimatedContainer(
+              duration: 500.ms,
+              width: success ? 420 : 200,
+              height: success ? 420 : 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: success ? AppTheme.success.withOpacity(.35) : Colors.transparent,
+                border: Border.all(color: AppTheme.primary, width: 3),
+              ),
+              child: const _CornerMarkers(),
+            ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(begin: const Offset(.98, .98), end: const Offset(1.04, 1.04), duration: 900.ms),
+          ),
+          Positioned(
+            left: 24,
+            right: 24,
+            bottom: 34,
+            child: Column(
+              children: [
+                if (manual) _ManualKeypad(code: code, error: error, onDigit: _digit, onClear: () => setState(() => code = '')),
+                const SizedBox(height: 12),
+                AppButton(label: manual ? 'Проверить стол' : 'Ввести код вручную', kind: ButtonKind.secondary, onPressed: manual ? _validate : () => setState(() => manual = true)),
+                const SizedBox(height: 10),
+                AppButton(label: 'Демо скан QR', icon: Icons.qr_code_scanner, onPressed: () => _finish('04')),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _digit(String value) {
+    if (code.length >= 6) return;
+    setState(() => code += value);
+  }
+
+  void _validate() => _finish(code);
+
+  void _finish(String value) {
+    final ok = context.read<CafeState>().validateTableCode(value);
+    if (!ok) {
+      setState(() => error = true);
+      return;
+    }
+    setState(() => success = true);
+    Future.delayed(520.ms, () => mounted ? context.go('/client') : null);
+  }
+}
+
+class _ScannerBackdrop extends StatelessWidget {
+  const _ScannerBackdrop();
+  @override
+  Widget build(BuildContext context) {
+    return Stack(children: [
+      MobileScanner(onDetect: (_) {}),
+      Container(color: Colors.black.withOpacity(.55)),
+    ]);
+  }
+}
+
+class _CornerMarkers extends StatelessWidget {
+  const _CornerMarkers();
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(painter: _CornersPainter());
+  }
+}
+
+class _CornersPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = AppTheme.primary..strokeWidth = 5..style = PaintingStyle.stroke..strokeCap = StrokeCap.round;
+    const l = 38.0;
+    canvas.drawLine(Offset(16, 42), const Offset(16, 16), paint);
+    canvas.drawLine(const Offset(16, 16), Offset(l, 16), paint);
+    canvas.drawLine(Offset(size.width - 16, 42), Offset(size.width - 16, 16), paint);
+    canvas.drawLine(Offset(size.width - 16, 16), Offset(size.width - l, 16), paint);
+    canvas.drawLine(Offset(16, size.height - 42), Offset(16, size.height - 16), paint);
+    canvas.drawLine(Offset(16, size.height - 16), Offset(l, size.height - 16), paint);
+    canvas.drawLine(Offset(size.width - 16, size.height - 42), Offset(size.width - 16, size.height - 16), paint);
+    canvas.drawLine(Offset(size.width - 16, size.height - 16), Offset(size.width - l, size.height - 16), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _ManualKeypad extends StatelessWidget {
+  const _ManualKeypad({required this.code, required this.error, required this.onDigit, required this.onClear});
+  final String code;
+  final bool error;
+  final ValueChanged<String> onDigit;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Column(children: [
+        Text(code.padRight(4, '•'), style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: error ? AppTheme.danger : Colors.black)),
+        const SizedBox(height: 12),
+        GridView.count(
+          crossAxisCount: 3,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          childAspectRatio: 1.8,
+          children: [...List.generate(9, (i) => '${i + 1}'), 'C', '0', '←'].map((d) {
+            return Padding(
+              padding: const EdgeInsets.all(4),
+              child: AppButton(label: d, kind: ButtonKind.ghost, onPressed: d == 'C' ? onClear : d == '←' ? onClear : () => onDigit(d)),
+            );
+          }).toList(),
+        ),
+      ]),
+    ).animate(target: error ? 1 : 0).shakeX(duration: 300.ms);
+  }
+}
+
+class CustomerMenuScreen extends StatelessWidget {
+  const CustomerMenuScreen({super.key});
+  @override
+  Widget build(BuildContext context) => MenuShell(clientMode: true, title: 'CafeConnect', tableBadge: context.watch<CafeState>().currentTable?.number ?? 4);
 }
 
 class WaiterOrderScreen extends StatelessWidget {
@@ -918,14 +1055,6 @@ class WaiterOrderScreen extends StatelessWidget {
     return MenuShell(clientMode: false, title: 'Стол ${table.number.toString().padLeft(2, '0')}', tableBadge: table.number);
   }
 }
-
-class CustomerMenuScreen extends StatelessWidget {
-  const CustomerMenuScreen({super.key});
-  @override
-  Widget build(BuildContext context) => MenuShell(clientMode: true, title: 'CafeConnect', tableBadge: context.watch<CafeState>().currentTable?.number ?? 4);
-}
-
-
 
 class MenuShell extends StatelessWidget {
   const MenuShell({super.key, required this.clientMode, required this.title, required this.tableBadge});
@@ -1380,199 +1509,121 @@ class WaiterTableGridScreen extends StatelessWidget {
     return AppScaffold(
       bottomNav: const StaffBottomNav(current: '/tables'),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Header(title: 'Столы', subtitle: 'Этаж 1 · ${state.tables.where((t) => t.status != TableStatus.free).length} активных'),
+        Header(title: 'Столы', subtitle: 'Этаж 1 · ${state.tables.where((t) => t.status != TableStatus.free).length} активных', actions: [
+          IconButton(onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Поиск включён'))), icon: const Icon(Icons.search)),
+          IconButton(onPressed: () => _showStatusFilter(context), icon: const Icon(Icons.filter_list)),
+        ]),
+        SizedBox(height: 34, child: ListView(scrollDirection: Axis.horizontal, children: TableStatus.values.map((s) => CategoryChip(label: statusLabel(s), active: false, onTap: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Фильтр: ${statusLabel(s)}'))))).toList())),
         const SizedBox(height: 12),
         Expanded(child: GridView.builder(
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 12, mainAxisSpacing: 12),
           itemCount: state.tables.length,
           itemBuilder: (_, i) {
             final table = state.tables[i];
-            return AppCard(
-              index: i,
-              onTap: () {
-                state.currentTable = table;
-                context.push('/table-check');
-              },
-              child: Stack(children: [
-                Positioned(right: 0, top: 0, child: StatusBadge(table.status)),
-                Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Text(table.number.toString().padLeft(2, '0'), style: Theme.of(context).textTheme.headlineLarge),
-                  Text(statusLabel(table.status), style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondary)),
-                ])),
-              ]),
+            return GestureDetector(
+              onLongPress: () => _showTableMenu(context, table),
+              child: AppCard(
+                index: i,
+                onTap: () {
+                  state.currentTable = table;
+                  if (table.status == TableStatus.free) table.status = TableStatus.occupied;
+                  context.push('/waiter-menu');
+                },
+                child: Stack(children: [
+                  Positioned(right: 0, top: 0, child: StatusBadge(table.status)),
+                  Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text(table.number.toString().padLeft(2, '0'), style: Theme.of(context).textTheme.headlineLarge),
+                    Text('${table.guestCount} гостей', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondary)),
+                  ])),
+                ]),
+              ),
             );
           },
         )),
         BlurBar(child: Row(children: [
-          Expanded(child: AppButton(label: 'Гость без брони', kind: ButtonKind.secondary, onPressed: state.addWalkIn)),
+          Expanded(child: AppButton(label: 'Гость без QR', kind: ButtonKind.secondary, onPressed: state.addWalkIn)),
           const SizedBox(width: 10),
-          Expanded(child: AppButton(label: 'Все заказы', onPressed: () => context.push('/orders'))),
+          Expanded(child: AppButton(label: 'Мои заказы', onPressed: () => context.push('/kitchen'))),
         ])),
       ]),
     );
   }
 }
 
-class TableCheckScreen extends StatelessWidget {
-  const TableCheckScreen({super.key});
+void _showStatusFilter(BuildContext context) => showModalBottomSheet(context: context, builder: (_) => Padding(padding: const EdgeInsets.all(20), child: Wrap(spacing: 8, runSpacing: 8, children: TableStatus.values.map((s) => CategoryChip(label: statusLabel(s), active: false, onTap: () => Navigator.pop(context))).toList())));
+
+void _showTableMenu(BuildContext context, CafeTable table) => showModalBottomSheet(context: context, backgroundColor: Colors.transparent, builder: (_) => ClipRRect(
+  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+  child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18), child: Container(color: Colors.white.withOpacity(.9), padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
+    AppButton(label: 'Детали стола ${table.number}', icon: Icons.info, onPressed: () => Navigator.pop(context)),
+    const SizedBox(height: 10),
+    AppButton(label: 'Закрыть стол', icon: Icons.close, kind: ButtonKind.secondary, onPressed: () { context.read<CafeState>().closeTable(table); Navigator.pop(context); }),
+    const SizedBox(height: 10),
+    AppButton(label: 'Сменить цвет', icon: Icons.palette, kind: ButtonKind.secondary, onPressed: () { table.color = Colors.primaries[Random().nextInt(Colors.primaries.length)]; context.read<CafeState>().refresh(); Navigator.pop(context); }),
+  ]))),
+));
+
+void _showWaiterCart(BuildContext context, String tableId) => showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => WaiterCartSheet(tableId: tableId));
+
+class WaiterCartSheet extends StatefulWidget {
+  const WaiterCartSheet({super.key, required this.tableId});
+  final String tableId;
+  @override
+  State<WaiterCartSheet> createState() => _WaiterCartSheetState();
+}
+
+class _WaiterCartSheetState extends State<WaiterCartSheet> {
+  bool sent = false;
   @override
   Widget build(BuildContext context) {
     final state = context.watch<CafeState>();
-    final table = state.currentTable ?? state.tables.first;
-    final lines = state.tableCart(table.id);
-    final total = lines.fold(0.0, (sum, l) => sum + l.total);
-    
+    final lines = state.tableCart(widget.tableId);
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: .72,
+      builder: (_, scroll) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Заказ стола', style: Theme.of(context).textTheme.headlineLarge),
+          Expanded(child: ListView(controller: scroll, children: lines.map((l) => CartLineTile(line: l, tableId: widget.tableId)).toList())),
+          AppButton(label: sent ? 'Отправлено' : 'Отправить на кухню', icon: sent ? Icons.check : Icons.send, onPressed: () async {
+            await state.submitOrder(tableId: widget.tableId);
+            setState(() => sent = true);
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Отправлено на кухню и в бар')));
+            Future.delayed(400.ms, () => Navigator.pop(context));
+          }),
+        ]),
+      ),
+    );
+  }
+}
+
+class OrderFeedScreen extends StatelessWidget {
+  const OrderFeedScreen({super.key, required this.feed});
+  final FeedType feed;
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<CafeState>();
+    final active = state.orders.where((o) => o.splitTo == feed && o.status != OrderStatus.completed).toList();
     return AppScaffold(
+      bottomNav: StaffBottomNav(current: feed == FeedType.kitchen ? '/kitchen' : '/bar'),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          IconButton(onPressed: () => context.pop(), icon: const Icon(Icons.arrow_back)),
-          Text('Стол ${table.number.toString().padLeft(2, '0')}', style: Theme.of(context).textTheme.headlineLarge),
-          const Spacer(),
-          _Pill(statusLabel(table.status), statusColor(table.status)),
+        Header(title: feed == FeedType.kitchen ? 'Кухня' : 'Бар', subtitle: '${active.length} активных заказов', actions: [
+          IconButton(onPressed: () {}, icon: const Icon(Icons.schedule)),
+          IconButton(onPressed: () {}, icon: const Icon(Icons.filter_list)),
         ]),
-        const Text('Открыт: 14:20 (45 мин)', style: TextStyle(color: AppTheme.secondary)),
-        const Divider(height: 32),
-        Expanded(
-          child: lines.isEmpty 
-            ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.receipt_long, size: 64, color: AppTheme.separator),
-                const SizedBox(height: 16),
-                const Text('Чек пуст', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 16),
-                AppButton(label: 'Добавить блюдо', kind: ButtonKind.secondary, onPressed: () => context.push('/waiter-menu')),
-              ]))
-            : ListView(children: [
-                const Text('ТЕКУЩИЙ ЗАКАЗ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppTheme.secondary, letterSpacing: 1.2)),
-                const SizedBox(height: 12),
-                ...lines.map((l) => Dismissible(
-                  key: ValueKey(l.hashCode),
-                  onDismissed: (_) => state.deleteLine(l, tableId: table.id),
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(children: [
-                      if (l.sent) Icon(l.item.category == 'Кофе' || l.item.category == 'Напитки' ? Icons.local_bar : Icons.restaurant, size: 16, color: AppTheme.success),
-                      if (l.sent) const SizedBox(width: 8),
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(l.item.name, style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w600)),
-                        if (l.modifiers.isNotEmpty) Text(l.modifiers, style: const TextStyle(fontSize: 12, color: AppTheme.secondary)),
-                      ])),
-                      QuantityStepper(value: l.quantity, onChanged: (v) { l.quantity = v; state.refresh(); }),
-                      const SizedBox(width: 12),
-                      Text(l.total.rub, style: const TextStyle(fontFamily: 'monospace')),
-                    ]),
-                  ),
-                )),
-                const Divider(),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  const Text('ИТОГО', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-                  Text(total.rub, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: AppTheme.primary)),
-                ]),
-                const SizedBox(height: 24),
-                AppButton(label: 'Добавить в заказ', icon: Icons.add, kind: ButtonKind.secondary, onPressed: () => context.push('/waiter-menu')),
-              ]),
-        ),
-        const SizedBox(height: 12),
-        Row(children: [
-          Expanded(child: AppButton(label: 'На кухню', icon: Icons.restaurant, kind: ButtonKind.primary, onPressed: () {
-            state.submitOrder(tableId: table.id, onlyFor: FeedType.kitchen);
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Отправлено на кухню')));
-          })),
-          const SizedBox(width: 12),
-          Expanded(child: AppButton(label: 'В бар', icon: Icons.local_bar, kind: ButtonKind.dark, onPressed: () {
-            state.submitOrder(tableId: table.id, onlyFor: FeedType.bar);
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Отправлено в бар')));
-          })),
-        ]),
-        const SizedBox(height: 12),
-        AppButton(label: 'Запросить счёт', kind: ButtonKind.ghost, onPressed: () {
-          table.status = TableStatus.awaitingPayment;
-          state.refresh();
-          context.pop();
-        }),
+        Expanded(child: ListView.builder(itemCount: active.length, itemBuilder: (_, i) => OrderCard(order: active[i], index: i))),
+        BlurBar(child: Row(children: [
+          const StatusBadge(TableStatus.ready),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('Система онлайн')),
+          AppButton(label: 'Открыть чат', kind: ButtonKind.secondary, onPressed: () {
+            state.currentGroup = state.groups.firstWhere((g) => g.type == feed);
+            context.push('/chat');
+          }),
+        ])),
       ]),
-    );
-  }
-}
-
-class UnifiedOrderFeedScreen extends StatefulWidget {
-  const UnifiedOrderFeedScreen({super.key});
-  @override
-  State<UnifiedOrderFeedScreen> createState() => _UnifiedOrderFeedScreenState();
-}
-
-class _UnifiedOrderFeedScreenState extends State<UnifiedOrderFeedScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() => setState(() {}));
-  }
-  @override
-  Widget build(BuildContext context) {
-    final state = context.watch<CafeState>();
-    final kitchenOrders = state.orders.where((o) => o.splitTo == FeedType.kitchen && o.status != OrderStatus.completed).toList();
-    final barOrders = state.orders.where((o) => o.splitTo == FeedType.bar && o.status != OrderStatus.completed).toList();
-
-    return AppScaffold(
-      bottomNav: const StaffBottomNav(current: '/orders'),
-      child: Column(children: [
-        Header(title: 'Очередь', subtitle: '${kitchenOrders.length + barOrders.length} активных заказов'),
-        TabBar(
-          controller: _tabController,
-          indicatorColor: _tabController.index == 0 ? AppTheme.warning : AppTheme.primary,
-          labelColor: Colors.black,
-          unselectedLabelColor: Colors.grey,
-          tabs: const [
-            Tab(text: 'КУХНЯ', icon: Icon(Icons.restaurant)),
-            Tab(text: 'БАР', icon: Icon(Icons.local_bar)),
-          ],
-        ),
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              ListView.builder(itemCount: kitchenOrders.length, itemBuilder: (_, i) => OrderCard(order: kitchenOrders[i], index: i)),
-              ListView.builder(itemCount: barOrders.length, itemBuilder: (_, i) => OrderCard(order: barOrders[i], index: i)),
-            ],
-          ),
-        ),
-      ]),
-    );
-  }
-}
-
-class _LiveTimer extends StatefulWidget {
-  const _LiveTimer({required this.createdAt, required this.color});
-  final DateTime createdAt;
-  final Color color;
-  @override
-  State<_LiveTimer> createState() => _LiveTimerState();
-}
-
-class _LiveTimerState extends State<_LiveTimer> {
-  Timer? _timer;
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-  @override
-  Widget build(BuildContext context) {
-    final age = DateTime.now().difference(widget.createdAt);
-    final mm = age.inMinutes.toString().padLeft(2, '0');
-    final ss = (age.inSeconds % 60).toString().padLeft(2, '0');
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: widget.color.withOpacity(.14), borderRadius: BorderRadius.circular(8)),
-      child: Text('$mm:$ss', style: TextStyle(color: widget.color, fontWeight: FontWeight.w800, fontFamily: 'monospace')),
     );
   }
 }
@@ -1600,103 +1651,34 @@ class OrderCard extends StatelessWidget {
         ]),
         const Divider(height: 24),
         ...order.items.map((line) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Text('${line.quantity}x ${line.item.name}${line.modifiers.isEmpty ? '' : '\n   ${line.modifiers}'}'))),
-        const SizedBox(height: 12),
-        Row(children: [
-          Expanded(child: AppButton(label: order.status == OrderStatus.ready ? 'Готово' : 'Отметить готовым', icon: Icons.check, onPressed: () => state.markReady(order))),
-          const SizedBox(width: 8),
-          IconButton(icon: const Icon(Icons.chat_outlined), onPressed: () => _showDiscussModal(context, order)),
-        ]),
+        const SizedBox(height: 8),
+          AppButton(label: order.status == OrderStatus.ready ? 'Готово' : 'Отметить готовым', icon: Icons.check, onPressed: () => state.markReady(order)),
       ]),
     ).animate(onPlay: late ? (c) => c.repeat(reverse: true) : null).tint(color: late ? AppTheme.danger.withOpacity(.05) : Colors.transparent, duration: 500.ms);
   }
 }
 
-void _showWaiterCart(BuildContext context, String tableId) {
-  final state = context.read<CafeState>();
-  final lines = state.tableCart(tableId);
-  showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => Padding(
-    padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
-    child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('Заказ стола', style: Theme.of(context).textTheme.titleLarge),
-      const SizedBox(height: 12),
-      ...lines.map((l) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Row(children: [
-          Expanded(child: Text('${l.quantity}x ${l.item.name}')),
-          Text(l.total.rub, style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w700)),
-        ]),
-      )),
-      const SizedBox(height: 14),
-      AppButton(label: 'Отправить заказ', icon: Icons.send, onPressed: () {
-        state.submitOrder(tableId: tableId);
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Заказ отправлен')));
-      }),
-    ]),
-  ));
-}
-
-void _showDiscussModal(BuildContext context, CafeOrder order) {
-  final comment = TextEditingController();
-  showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => Padding(
-    padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
-    child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Text('Обсудить заказ #${order.id}', style: Theme.of(context).textTheme.titleLarge),
-      const SizedBox(height: 16),
-      AppTextField(controller: comment, label: 'Комментарий...'),
-      const SizedBox(height: 16),
-      const Text('Выберите чат:', style: TextStyle(fontWeight: FontWeight.w700)),
-      const SizedBox(height: 8),
-      Wrap(spacing: 8, children: context.read<CafeState>().groups.map((g) => AppButton(label: g.name, kind: ButtonKind.secondary, onPressed: () {
-        context.read<CafeState>().discussInChat(order, g, comment.text);
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Отправлено в чат')));
-      })).toList()),
-    ]),
-  ));
-}
-
-class AdminPanelScreen extends StatefulWidget {
-  const AdminPanelScreen({super.key});
+class _LiveTimer extends StatefulWidget {
+  const _LiveTimer({required this.createdAt, required this.color});
+  final DateTime createdAt;
+  final Color color;
   @override
-  State<AdminPanelScreen> createState() => _AdminPanelScreenState();
+  State<_LiveTimer> createState() => _LiveTimerState();
 }
 
-class _AdminPanelScreenState extends State<AdminPanelScreen> {
-  String search = '';
-  UserRole? roleFilter;
-
+class _LiveTimerState extends State<_LiveTimer> {
+  late Timer timer;
+  @override
+  void initState() {
+    super.initState();
+    timer = Timer.periodic(1.seconds, (_) => mounted ? setState(() {}) : null);
+  }
+  @override
+  void dispose() { timer.cancel(); super.dispose(); }
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<CafeState>();
-    final filtered = state.users.where((u) {
-      final okSearch = u.name.toLowerCase().contains(search.toLowerCase()) || u.login.toLowerCase().contains(search.toLowerCase());
-      final okRole = roleFilter == null || u.role == roleFilter;
-      return okSearch && okRole;
-    }).toList();
-
-    return AppScaffold(
-      bottomNav: const StaffBottomNav(current: '/admin'),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Header(title: 'Админ-панель', subtitle: 'Управление системой', actions: [
-          IconButton(icon: const Icon(Icons.person_add), onPressed: () => _showStaffForm(context)),
-        ]),
-        TextField(
-          onChanged: (v) => setState(() => search = v),
-          decoration: InputDecoration(hintText: 'Поиск по имени/логину', prefixIcon: const Icon(Icons.search), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(height: 34, child: ListView(scrollDirection: Axis.horizontal, children: [
-          CategoryChip(label: 'Все', active: roleFilter == null, onTap: () => setState(() => roleFilter = null)),
-          ...UserRole.values.map((r) => CategoryChip(label: roleLabel(r), active: roleFilter == r, onTap: () => setState(() => roleFilter = r))),
-        ])),
-        const SizedBox(height: 16),
-        Expanded(child: ListView.builder(itemCount: filtered.length, itemBuilder: (_, i) => StaffMemberRow(user: filtered[i]))),
-        const SectionTitle('Управление чатами'),
-        AppCard(onTap: () => _showGroupForm(context), child: const ListTile(leading: Icon(Icons.chat), title: Text('Создать новую группу'))),
-        const SizedBox(height: 40),
-      ]),
-    );
+    final d = DateTime.now().difference(widget.createdAt);
+    return Text('${d.inMinutes.toString().padLeft(2, '0')}:${(d.inSeconds % 60).toString().padLeft(2, '0')}', style: TextStyle(color: widget.color, fontFamily: 'monospace', fontWeight: FontWeight.w700, fontSize: 17));
   }
 }
 
@@ -1713,20 +1695,35 @@ class StaffChatListScreen extends StatelessWidget {
         Expanded(child: ListView.builder(itemCount: groups.length, itemBuilder: (_, i) {
           final group = groups[i];
           final last = state.messages.where((m) => m.groupId == group.id).lastOrNull;
-          return AppCard(
-            index: i,
-            onTap: () {
-              state.currentGroup = group;
-              context.push('/chat');
+          return Dismissible(
+            key: ValueKey(group.id),
+            background: Container(color: AppTheme.primary, alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 20), child: const Text('Закрепить / Без звука / Удалить', style: TextStyle(color: Colors.white))),
+            confirmDismiss: (_) async {
+              group.pinned = !group.pinned;
+              state.refresh();
+              return false;
             },
-            child: Row(children: [
-              Avatar(label: group.name, online: true),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [Expanded(child: Text(group.name, style: Theme.of(context).textTheme.titleMedium)), if (group.pinned) const Icon(Icons.push_pin, size: 15)]),
-                Text(last?.text ?? 'Нет сообщений', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppTheme.secondary, fontSize: 13)),
-              ])),
-            ]),
+            child: AppCard(
+              index: i,
+              onTap: () {
+                state.currentGroup = group;
+                context.push('/chat');
+              },
+              child: Row(children: [
+                Avatar(label: group.name, online: true),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [Expanded(child: Text(group.name, style: Theme.of(context).textTheme.titleMedium)), if (group.pinned) const Icon(Icons.push_pin, size: 15)]),
+                  Text(last?.text ?? 'Нет сообщений', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppTheme.secondary, fontSize: 13)),
+                ])),
+                const SizedBox(width: 8),
+                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Text(last == null ? '' : TimeOfDay.fromDateTime(last.timestamp).format(context), style: Theme.of(context).textTheme.labelSmall),
+                  const SizedBox(height: 5),
+                  const CartBadge(count: 2),
+                ]),
+              ]),
+            ),
           );
         })),
       ]),
@@ -1742,12 +1739,15 @@ class StaffChatScreen extends StatefulWidget {
 
 class _StaffChatScreenState extends State<StaffChatScreen> {
   final input = TextEditingController();
+  String? tagFilter;
+  bool recording = false;
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<CafeState>();
     final group = state.currentGroup ?? state.groups.first;
-    final messages = state.messages.where((m) => m.groupId == group.id).toList();
+    final all = state.messages.where((m) => m.groupId == group.id).toList();
+    final messages = tagFilter == null ? all : all.where((m) => m.tags.contains(tagFilter)).toList();
     return AppScaffold(
       child: Column(children: [
         Row(children: [
@@ -1756,47 +1756,35 @@ class _StaffChatScreenState extends State<StaffChatScreen> {
           const SizedBox(width: 10),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(group.name, style: Theme.of(context).textTheme.titleMedium),
-            const Text('Онлайн', style: TextStyle(color: AppTheme.success, fontSize: 13)),
+            const Text('8 участников онлайн', style: TextStyle(color: AppTheme.success, fontSize: 13)),
           ])),
+          IconButton(onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Информация о группе'))), icon: const Icon(Icons.info_outline)),
         ]),
-        Expanded(child: ListView.builder(padding: const EdgeInsets.symmetric(vertical: 12), itemCount: messages.length, itemBuilder: (_, i) {
-          final msg = messages[i];
-          if (msg.tags.contains('#discuss')) return OrderDiscussionCard(message: msg);
-          return ChatBubble(message: msg, onTag: (_) {}, onReact: (_) {});
+        if (all.isNotEmpty) AppCard(padding: const EdgeInsets.all(10), child: Row(children: [const Icon(Icons.push_pin, size: 18), const SizedBox(width: 8), Expanded(child: Text(all.last.text, maxLines: 1, overflow: TextOverflow.ellipsis)), IconButton(onPressed: () => setState(() => tagFilter = null), icon: const Icon(Icons.close, size: 18))])),
+        Expanded(child: ListView.builder(padding: const EdgeInsets.symmetric(vertical: 12), itemCount: messages.length + 1, itemBuilder: (_, i) {
+          if (i == messages.length) return const TypingDots();
+          return ChatBubble(message: messages[i], onTag: (tag) => setState(() => tagFilter = tag), onReact: (emoji) => state.react(messages[i], emoji));
         })),
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Row(children: [
-            Expanded(child: AppTextField(controller: input, label: 'Сообщение...')),
-            IconButton(onPressed: () {
+        Row(children: [
+          IconButton(onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Вложение добавлено в черновик'))), icon: const Icon(Icons.add_circle_outline)),
+          Expanded(child: AppTextField(controller: input, label: 'Сообщение...', onChanged: (_) => setState(() {}))),
+          GestureDetector(
+            onLongPressStart: (_) => setState(() => recording = true),
+            onLongPressEnd: (_) {
+              setState(() => recording = false);
+              state.sendMessage('#голос Голосовое сообщение', voice: true);
+            },
+            child: Icon(Icons.mic, color: recording ? AppTheme.danger : AppTheme.secondary),
+          ),
+          IconButton(
+            onPressed: input.text.trim().isEmpty ? null : () {
               state.sendMessage(input.text.trim());
               input.clear();
-            }, icon: const Icon(Icons.send, color: AppTheme.primary)),
-          ]),
-        ),
-      ]),
-    );
-  }
-}
-
-class OrderDiscussionCard extends StatelessWidget {
-  const OrderDiscussionCard({super.key, required this.message});
-  final ChatMessage message;
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      padding: const EdgeInsets.all(12),
-      borderColor: AppTheme.primary.withOpacity(.3),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Icon(Icons.assignment, size: 16, color: AppTheme.primary),
-          const SizedBox(width: 8),
-          const Text('ОБСУЖДЕНИЕ ЗАКАЗА', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppTheme.primary, letterSpacing: 1)),
-        ]),
-        const SizedBox(height: 8),
-        Text(message.text.replaceAll('#discuss', '').trim(), style: const TextStyle(fontSize: 14)),
-        const Divider(),
-        AppButton(label: 'Открыть в очереди', kind: ButtonKind.ghost, onPressed: () => context.go('/orders')),
+              setState(() {});
+            },
+            icon: const CircleAvatar(backgroundColor: AppTheme.primary, child: Icon(Icons.arrow_upward, color: Colors.white)),
+          ),
+        ]).animate(target: recording ? 1 : 0).shakeX(),
       ]),
     );
   }
@@ -1812,21 +1800,52 @@ class ChatBubble extends StatelessWidget {
     final own = message.own;
     final bg = own ? AppTheme.primary : AppTheme.separator;
     final fg = own ? Colors.white : Colors.black;
-    return Align(
-      alignment: own ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * .78),
-        margin: const EdgeInsets.symmetric(vertical: 5),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(message.text, style: TextStyle(color: fg)),
-          const SizedBox(height: 4),
-          Text(TimeOfDay.fromDateTime(message.timestamp).format(context), style: TextStyle(color: own ? Colors.white70 : AppTheme.secondary, fontSize: 12)),
-        ]),
+    return GestureDetector(
+      onLongPress: () => showModalBottomSheet(context: context, builder: (_) => Padding(padding: const EdgeInsets.all(20), child: Wrap(spacing: 8, children: ['OK', 'Иду', 'Минуту', '❤️'].map((r) => AppButton(label: r, kind: ButtonKind.secondary, onPressed: () { onReact(r); Navigator.pop(context); })).toList()))),
+      child: Align(
+        alignment: own ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * .78),
+          margin: const EdgeInsets.symmetric(vertical: 5),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (message.voice) const _Waveform(),
+            Wrap(children: message.text.split(' ').map((part) => part.startsWith('#') ? GestureDetector(onTap: () => onTag(part), child: Text('$part ', style: TextStyle(color: own ? Colors.white : AppTheme.primary, fontWeight: FontWeight.w700))) : Text('$part ', style: TextStyle(color: fg))).toList()),
+            const SizedBox(height: 4),
+            Text(TimeOfDay.fromDateTime(message.timestamp).format(context), style: TextStyle(color: own ? Colors.white70 : AppTheme.secondary, fontSize: 13)),
+            if (message.reactions.isNotEmpty) Text(message.reactions.join(' ')),
+          ]),
+        ),
       ),
     );
   }
+}
+
+class TypingDots extends StatelessWidget {
+  const TypingDots({super.key});
+  @override
+  Widget build(BuildContext context) => Row(children: List.generate(3, (i) => Container(width: 7, height: 7, margin: const EdgeInsets.all(3), decoration: const BoxDecoration(color: AppTheme.secondary, shape: BoxShape.circle)).animate(delay: Duration(milliseconds: i * 150), onPlay: (c) => c.repeat(reverse: true)).scale(begin: const Offset(.5, .5), end: const Offset(1, 1), duration: 450.ms)));
+}
+
+class _Waveform extends StatefulWidget {
+  const _Waveform();
+  @override
+  State<_Waveform> createState() => _WaveformState();
+}
+
+class _WaveformState extends State<_Waveform> {
+  double speed = 1;
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: () => setState(() => speed = speed == 1 ? 1.5 : speed == 1.5 ? 2 : 1),
+    child: Row(children: [
+      const Icon(Icons.play_arrow, size: 18),
+      ...List.generate(16, (i) => Container(width: 3, height: 8 + (i % 5) * 4, margin: const EdgeInsets.symmetric(horizontal: 1), color: AppTheme.primary.withOpacity(.7))),
+      const SizedBox(width: 8),
+      Text('${speed}x'),
+    ]),
+  );
 }
 
 class ManagerDashboardScreen extends StatelessWidget {
@@ -1837,13 +1856,17 @@ class ManagerDashboardScreen extends StatelessWidget {
     return AppScaffold(
       bottomNav: const StaffBottomNav(current: '/manager'),
       child: ListView(children: [
-        Header(title: 'CafeConnect', subtitle: 'Панель менеджера'),
+        Header(title: 'CafeConnect', subtitle: 'Панель менеджера', actions: [IconButton(onPressed: () {}, icon: const Icon(Icons.settings))]),
         SectionTitle('Команда', action: () => context.push('/team')),
-        ...state.staff.take(3).map((u) => StaffMemberRow(user: u)),
-        const SectionTitle('Популярные позиции'),
-        ...state.menu.take(3).map((item) => AppCard(child: ListTile(leading: MenuImage(item.imageUrl), title: Text(item.name), subtitle: Text(item.price.rub)))),
-        const SizedBox(height: 20),
-        AppButton(label: 'Управление меню', onPressed: () => context.push('/menu-admin')),
+        ...state.staff.take(4).map((u) => StaffMemberRow(user: u)),
+        SectionTitle('Меню', action: () => context.push('/menu-admin')),
+        GridView.count(crossAxisCount: 2, childAspectRatio: .75, crossAxisSpacing: 12, mainAxisSpacing: 12, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), children: state.menu.take(4).mapIndexed((i, item) => MenuGridItem(item: item, index: i, onTap: () => context.push('/menu-admin'))).toList()),
+        const SizedBox(height: 16),
+        Wrap(spacing: 10, runSpacing: 10, children: [
+          AppButton(label: 'Создать группу', kind: ButtonKind.secondary, onPressed: () => context.push('/team')),
+          AppButton(label: 'Добавить сотрудника', kind: ButtonKind.secondary, onPressed: () => context.push('/team')),
+          AppButton(label: 'Редактировать меню', onPressed: () => context.push('/menu-admin')),
+        ]),
       ]),
     );
   }
@@ -1856,10 +1879,12 @@ class TeamManagementScreen extends StatelessWidget {
     final state = context.watch<CafeState>();
     return AppScaffold(
       child: ListView(children: [
-        Header(title: 'Команда', subtitle: '${state.staff.length} сотрудников', actions: [
-          IconButton(icon: const Icon(Icons.add), onPressed: () => _showStaffForm(context)),
-        ]),
+        Header(title: 'Управление', subtitle: 'Сотрудники и права', actions: [IconButton(onPressed: () => _showStaffForm(context), icon: const Icon(Icons.add))]),
         ...state.staff.map((u) => StaffMemberRow(user: u)),
+        AppCard(onTap: () => _showStaffForm(context), child: const Center(child: Padding(padding: EdgeInsets.all(14), child: Text('Добавить сотрудника', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w700))))),
+        const SectionTitle('Группы связи'),
+        AppCard(onTap: () => _showGroupForm(context), child: Row(children: [const Icon(Icons.groups, color: AppTheme.primary), const SizedBox(width: 10), const Expanded(child: Text('Создать новую группу')), const Icon(Icons.chevron_right)])),
+        ...state.groups.map((g) => AppCard(child: Row(children: [Avatar(label: g.name), const SizedBox(width: 10), Expanded(child: Text(g.name)), Text('${g.members.length} чел.', style: const TextStyle(color: AppTheme.secondary))]))),
       ]),
     );
   }
@@ -1870,17 +1895,26 @@ class StaffMemberRow extends StatelessWidget {
   final AppUser user;
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      onTap: () => _showStaffForm(context, user: user),
-      child: Row(children: [
-        Avatar(label: user.name, online: user.online),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(user.name, style: Theme.of(context).textTheme.titleMedium),
-          Text(roleLabel(user.role), style: const TextStyle(color: AppTheme.secondary)),
-        ])),
-        _Pill(user.status, user.online ? AppTheme.success : Colors.grey),
-      ]),
+    final roleColor = switch (user.role) { UserRole.manager => const Color(0xFFBF5AF2), UserRole.waiter => AppTheme.primary, UserRole.cook => AppTheme.warning, UserRole.bartender => AppTheme.success, UserRole.smm => const Color(0xFFFF2D55), UserRole.client => Colors.grey };
+    return Dismissible(
+      key: ValueKey(user.id),
+      background: Container(alignment: Alignment.centerRight, color: AppTheme.danger, padding: const EdgeInsets.only(right: 20), child: const Icon(Icons.delete, color: Colors.white)),
+      confirmDismiss: (_) async {
+        context.read<CafeState>().deleteStaff(user);
+        return false;
+      },
+      child: AppCard(
+        onTap: () => _showStaffForm(context, user: user),
+        child: Row(children: [
+          Avatar(label: user.name, online: user.online),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(user.name, style: Theme.of(context).textTheme.titleMedium),
+            Row(children: [Container(width: 8, height: 8, decoration: BoxDecoration(color: roleColor, shape: BoxShape.circle)), const SizedBox(width: 6), Text(roleLabel(user.role), style: const TextStyle(color: AppTheme.secondary))]),
+          ])),
+          Text(user.status, style: TextStyle(color: user.online ? AppTheme.success : AppTheme.secondary, fontSize: 13)),
+        ]),
+      ),
     );
   }
 }
@@ -1903,13 +1937,8 @@ void _showStaffForm(BuildContext context, {AppUser? user}) {
       const SizedBox(height: 10),
       AppTextField(controller: password, label: 'Пароль', obscure: true),
       const SizedBox(height: 14),
-      AppButton(label: user == null ? 'Создать' : 'Сохранить', onPressed: () {
-        if (user == null) {
-          context.read<CafeState>().createStaff(name.text, role, login.text, password.text);
-        } else {
-          user.name = name.text; user.role = role; user.login = login.text;
-          context.read<CafeState>().refresh();
-        }
+      AppButton(label: 'Создать', onPressed: () {
+        context.read<CafeState>().createStaff(name.text, role, login.text, password.text);
         Navigator.pop(context);
       }),
     ]),
@@ -1928,14 +1957,31 @@ void _showGroupForm(BuildContext context) {
         const SizedBox(height: 12),
         AppTextField(controller: name, label: 'Название'),
         const SizedBox(height: 12),
-        Wrap(spacing: 8, runSpacing: 8, children: state.staff.map((u) => CategoryChip(label: u.name, active: selected.contains(u), onTap: () => set(() {
-          if (selected.contains(u)) selected.remove(u); else selected.add(u);
-        }))).toList()),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: state.staff
+              .map((u) => CategoryChip(
+                    label: u.name.split(' ').first,
+                    active: selected.contains(u),
+                    onTap: () => set(() {
+                      if (selected.contains(u)) {
+                        selected.remove(u);
+                      } else {
+                        selected.add(u);
+                      }
+                    }),
+                  ))
+              .toList(),
+        ),
         const SizedBox(height: 14),
-        AppButton(label: 'Создать группу', onPressed: () {
-          state.createGroup(name.text, selected.toList());
-          Navigator.pop(context);
-        }),
+        AppButton(
+          label: 'Создать группу',
+          onPressed: () {
+            state.createGroup(name.text, selected.toList());
+            Navigator.pop(context);
+          },
+        ),
       ]),
     );
   }));
@@ -1948,17 +1994,21 @@ class MenuManagementScreen extends StatelessWidget {
     final state = context.watch<CafeState>();
     return AppScaffold(
       child: CustomScrollView(slivers: [
-        SliverToBoxAdapter(child: Header(title: 'Меню', subtitle: 'Доступность позиций')),
+        SliverToBoxAdapter(child: Header(title: 'Меню', subtitle: 'Доступность позиций', actions: [AppButton(label: 'Редактировать', kind: ButtonKind.secondary, onPressed: () => _showMenuEditor(context, state.menu.first))])),
+        SliverToBoxAdapter(child: SizedBox(height: 34, child: ListView(scrollDirection: Axis.horizontal, children: state.categories.skip(1).map((c) => CategoryChip(label: c, active: state.selectedCategory == c, onTap: () { state.selectedCategory = c; state.refresh(); })).toList()))),
         SliverPadding(
-          padding: const EdgeInsets.only(top: 14, bottom: 40),
+          padding: const EdgeInsets.only(top: 14, bottom: 18),
           sliver: SliverGrid(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: .62),
             delegate: SliverChildBuilderDelegate((context, i) {
-              final item = state.menu[i];
+              final item = state.filteredMenu(category: state.selectedCategory == 'Все' ? null : state.selectedCategory)[i];
               return MenuGridItem(item: item, index: i, onTap: () => _showMenuEditor(context, item), trailing: CupertinoSwitch(value: item.available, activeColor: AppTheme.success, onChanged: (_) => state.toggleAvailability(item)));
-            }, childCount: state.menu.length),
+            }, childCount: state.filteredMenu(category: state.selectedCategory == 'Все' ? null : state.selectedCategory).length),
           ),
         ),
+        SliverToBoxAdapter(child: const SectionTitle('Hero Banner')),
+        SliverToBoxAdapter(child: Column(children: state.promoItems.map((p) => AppCard(child: Row(children: [const Icon(Icons.drag_handle), const SizedBox(width: 8), Expanded(child: Text(p.name)), CupertinoSwitch(value: p.promo, activeColor: AppTheme.success, onChanged: (_) { p.promo = !p.promo; state.refresh(); })]))).toList())),
+        SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.only(top: 10, bottom: 40), child: AppButton(label: 'Добавить промо', kind: ButtonKind.secondary, onPressed: () { state.menu.first.promo = true; state.refresh(); }))),
       ]),
     );
   }
@@ -1966,23 +2016,52 @@ class MenuManagementScreen extends StatelessWidget {
 
 void _showMenuEditor(BuildContext context, MenuItem item) {
   final name = TextEditingController(text: item.name);
+  final description = TextEditingController(text: item.description);
   final price = TextEditingController(text: item.price.toStringAsFixed(2));
-  showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => Padding(
+  final prep = TextEditingController(text: '${item.prepTime}');
+  var category = item.category;
+  final tags = item.tags.toSet();
+  showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => StatefulBuilder(builder: (context, set) => Padding(
     padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
-    child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Text('Редактировать блюдо', style: Theme.of(context).textTheme.titleLarge),
-      const SizedBox(height: 16),
+    child: ListView(shrinkWrap: true, children: [
+      MenuImage(item.imageUrl, radius: 16, aspectRatio: 16 / 9),
+      const SizedBox(height: 12),
+      AppButton(label: 'Заменить фото', kind: ButtonKind.secondary, onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Фото обновлено')))),
+      const SizedBox(height: 12),
       AppTextField(controller: name, label: 'Название'),
       const SizedBox(height: 10),
+      AppTextField(controller: description, label: 'Описание'),
+      const SizedBox(height: 10),
       AppTextField(controller: price, label: 'Цена', keyboardType: TextInputType.number),
+      const SizedBox(height: 10),
+      DropdownButtonFormField(value: category, decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Категория'), items: ['Кофе', 'Выпечка', 'Завтраки', 'Кухня', 'Напитки', 'Сезонное'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(), onChanged: (v) => set(() => category = v!)),
+      const SizedBox(height: 10),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: ['Vegan', 'Spicy', 'Gluten-free', 'Dairy', 'Eggs']
+            .map((t) => CategoryChip(
+                  label: t,
+                  active: tags.contains(t),
+                  onTap: () => set(() {
+                    if (tags.contains(t)) {
+                      tags.remove(t);
+                    } else {
+                      tags.add(t);
+                    }
+                  }),
+                ))
+            .toList(),
+      ),
+      const SizedBox(height: 10),
+      AppTextField(controller: prep, label: 'Время приготовления, мин', keyboardType: TextInputType.number),
       const SizedBox(height: 14),
       AppButton(label: 'Сохранить', onPressed: () {
-        item.name = name.text; item.price = double.tryParse(price.text) ?? item.price;
-        context.read<CafeState>().refresh();
+        context.read<CafeState>().saveMenuItem(item, name.text, description.text, double.tryParse(price.text) ?? item.price, category, tags.toList(), int.tryParse(prep.text) ?? item.prepTime);
         Navigator.pop(context);
       }),
     ]),
-  ));
+  )));
 }
 
 class Header extends StatelessWidget {
@@ -2017,7 +2096,12 @@ class Avatar extends StatelessWidget {
   final bool online;
   @override
   Widget build(BuildContext context) {
-    final initials = label.split(' ').where((part) => part.isNotEmpty).map((part) => part.substring(0, 1).toUpperCase()).take(2).join();
+    final initials = label
+        .split(' ')
+        .where((part) => part.isNotEmpty)
+        .map((part) => part.substring(0, 1).toUpperCase())
+        .take(2)
+        .join();
     return Stack(clipBehavior: Clip.none, children: [
       CircleAvatar(radius: 24, backgroundColor: AppTheme.primary.withOpacity(.16), child: Text(initials, style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w800))),
       if (online) Positioned(right: -1, bottom: -1, child: Container(width: 10, height: 10, decoration: BoxDecoration(color: AppTheme.success, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)))),
@@ -2088,27 +2172,16 @@ class StaffBottomNav extends StatelessWidget {
   final String current;
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<CafeState>();
-    final role = state.currentUser?.role ?? UserRole.waiter;
-    
     final items = [
-      if (role == UserRole.admin || role == UserRole.manager) ('Метрики', Icons.analytics, '/manager'),
-      if (role == UserRole.admin) ('Админ', Icons.admin_panel_settings, '/admin'),
-      if (role == UserRole.admin || role == UserRole.manager || role == UserRole.waiter) ('Столы', Icons.table_bar, '/tables'),
-      if (role != UserRole.client) ('Заказы', Icons.assignment, '/orders'),
-      if (role != UserRole.client) ('Чаты', Icons.chat_bubble, '/chats'),
-      if (role == UserRole.client) ('Меню', Icons.restaurant_menu, '/client'),
+      ('Домой', Icons.home, '/manager'),
+      ('Столы', Icons.table_bar, '/tables'),
+      ('Чаты', Icons.chat_bubble, '/chats'),
+      ('Профиль', Icons.person, '/login'),
     ];
-    
-    int selected = items.indexWhere((e) => e.$3 == current);
-    
     return NavigationBar(
-      selectedIndex: max(0, selected),
+      selectedIndex: max(0, items.indexWhere((e) => e.$3 == current)),
       onDestinationSelected: (i) => context.go(items[i].$3),
-      destinations: items.map((e) => NavigationDestination(
-        icon: Icon(e.$2, color: items.indexOf(e) == selected ? AppTheme.primary : Colors.grey), 
-        label: items.indexOf(e) == selected ? e.$1 : ''
-      )).toList(),
+      destinations: items.map((e) => NavigationDestination(icon: Icon(e.$2, color: e.$3 == current ? AppTheme.primary : Colors.grey), label: e.$3 == current ? e.$1 : '')).toList(),
     );
   }
 }
@@ -2130,4 +2203,3 @@ class _Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7), decoration: BoxDecoration(color: color.withOpacity(.14), borderRadius: BorderRadius.circular(8)), child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13)));
 }
-

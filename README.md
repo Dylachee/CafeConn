@@ -1,34 +1,61 @@
 # CafeConnect
 
-CafeConnect is a Flutter implementation of the supplied FlutterFlow MVP brief. It includes role-based flows for client, waiter, cook, bartender, and manager, Russian UI copy, reusable Apple-style components, local/offline state, mock REST/WebSocket behavior, and animated interactions.
+CafeConnect — это современное Flutter-приложение для управления кафе и рестораном. Реализовано как интерактивный прототип с поддержкой ролевых моделей (Админ, Менеджер, Официант, Повар, Бармен, Клиент), локальным состоянием и проработанным Apple-style интерфейсом.
 
-## What is included
+## Основные возможности
 
-- QR/manual table entry
-- Client menu, dish bottom sheet, cart, and order status
-- Waiter table grid and table order mode
-- Kitchen and bar order feeds
-- Staff chat list and chat screen
-- Manager dashboard, team management, menu management, and editor forms
-- Shared components: app buttons, cards, category chips, menu grid items, order cards, status badges, staff rows, chat bubbles, steppers, and hero carousel
-- Local app state with seeded users, tables, menu, orders, staff, groups, messages, drafts, and offline queue
+### 🏢 Управление залом (Официант)
+- **Сетка столов**: Наглядное отображение статусов столов (Свободен, Занят, Счёт, Готово, Задержка).
+- **Электронный чек**: Просмотр текущего заказа стола, времени открытия и общей суммы.
+- **Быстрый заказ**: Добавление позиций из меню прямо в чек стола.
+- **Разделение потоков**: Кнопки "На кухню" и "В бар" автоматически распределяют блюда и напитки по соответствующим цехам.
 
-## Run locally
+### 🧑‍🍳 Очередь заказов (Повар / Бармен)
+- **Единый фид**: Разделение заказов на зоны "Кухня" и "Бар" с помощью табов и свайпов.
+- **Таймеры**: Контроль времени приготовления с цветовой индикацией задержек.
+- **Интерактив**: Возможность отметить заказ готовым или обсудить его в чате.
 
-Flutter is not installed in this workspace, so the app was not built here. On a machine with Flutter 3.x:
+### 🛡️ Админ-панель и Менеджмент
+- **Управление персоналом**: Список всех сотрудников с фильтрацией по ролям и поиском. Создание, редактирование и деактивация пользователей.
+- **Управление чатами**: Создание групповых чатов, управление составом участников.
+- **Автоматизация**: Автоматическое подключение сотрудников к нужным каналам связи (Общий, Кухня, Бар) при первом входе.
 
+### 💬 Командное взаимодействие
+- **Тематические чаты**: Обсуждение конкретных заказов через карточки-ссылки.
+- **Системные уведомления**: Автоматические сообщения о новых заказах и вызовах официанта.
+
+### 📱 Клиентский опыт
+- **Цифровое меню**: Красивый каталог с категориями, поиском и детальным описанием блюд.
+- **Корзина и Статус**: Отслеживание этапов приготовления заказа в реальном времени.
+
+## Технологический стек
+- **Framework**: Flutter (Material 3 + Cupertino elements)
+- **State Management**: Provider
+- **Navigation**: GoRouter
+- **Local DB**: Hive (для кэширования)
+- **Animations**: Flutter Animate
+- **Styling**: Google Fonts (Inter), Apple Design Guidelines
+
+## Структура проекта
+- `lib/main.dart`: Содержит всю логику приложения, включая:
+    - `CafeState`: Централизованное управление состоянием.
+    - `MockCafeApi`: Генерация демонстрационных данных.
+    - Роутинг и описание всех экранов.
+    - UI-компоненты (AppButton, AppCard, StatusBadge и др.).
+
+## Как запустить
+Для тестирования в коде включен **автологин под администратором**. Приложение стартует сразу с админ-панели.
+
+1. Убедитесь, что установлен Flutter SDK.
+2. Выполните команды:
 ```bash
-flutter create .
 flutter pub get
 flutter run
 ```
 
-The app is portrait-oriented in code and uses mock services by default. Replace `MockCafeApi` and `MockRealtimeHub` in `lib/main.dart` with real REST and WebSocket implementations when the backend is ready.
-
-## Demo logins
-
-- Client: `client` / `1234`
-- Waiter: `waiter` / `1234`
-- Cook: `cook` / `1234`
-- Bartender: `bar` / `1234`
-- Manager: `manager` / `1234`
+## Демо-данные для входа
+- **Админ**: `admin` / `admin`
+- **Менеджер**: `manager` / `1234`
+- **Официант**: `waiter` / `1234`
+- **Повар**: `cook` / `1234`
+- **Бармен**: `bar` / `1234`
