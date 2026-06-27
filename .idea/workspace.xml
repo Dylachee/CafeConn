@@ -69,6 +69,7 @@
       <change beforePath="$PROJECT_DIR$/landing/index.html" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/landing/js/main.js" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/main.dart" afterDir="false" />
+
       <change beforePath="$PROJECT_DIR$/lib/models/models.dart" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/models/models.g.dart" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/chats_screen.dart" beforeDir="false" />
@@ -78,6 +79,7 @@
       <change beforePath="$PROJECT_DIR$/lib/screens/tables_screen.dart" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/macos/Flutter/GeneratedPluginRegistrant.swift" beforeDir="false" afterPath="$PROJECT_DIR$/macos/Flutter/GeneratedPluginRegistrant.swift" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/test/widget_test.dart" beforeDir="false" afterPath="$PROJECT_DIR$/test/widget_test.dart" afterDir="false" />
+
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
