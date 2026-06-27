@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -23,5 +24,12 @@ void main() {
 
     expect(find.text('CafeConnect'), findsOneWidget);
     expect(find.text('Войти'), findsOneWidget);
+=======
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('Smoke test', () {
+    expect(true, true);
+>>>>>>> Stashed changes
   });
 }
