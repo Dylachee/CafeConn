@@ -10,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -22,60 +21,65 @@ void main() async {
   runApp(const CafeConnectApp());
 }
 
-class CafeConnectApp extends StatelessWidget {
+class CafeConnectApp extends StatefulWidget {
   const CafeConnectApp({super.key});
+  @override
+  State<CafeConnectApp> createState() => _CafeConnectAppState();
+}
+
+class _CafeConnectAppState extends State<CafeConnectApp> {
+  late final CafeState _cafeState;
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+    _cafeState = CafeState()..boot();
+    _router = GoRouter(
+      refreshListenable: _cafeState,
+      initialLocation: '/tables',
+      routes: [
+        GoRoute(
+            path: '/tables',
+            builder: (_, __) => const MainShellScreen()),
+        GoRoute(
+            path: '/table-details',
+            builder: (_, __) => const TableDetailsScreen()),
+        GoRoute(
+            path: '/waiter-menu',
+            builder: (_, __) => const WaiterOrderScreen()),
+        GoRoute(path: '/chat', builder: (_, __) => const StaffChatScreen()),
+        GoRoute(
+            path: '/settings',
+            builder: (_, __) => const SettingsScreen()),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _cafeState.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => CafeState()..boot(),
+    return ChangeNotifierProvider.value(
+      value: _cafeState,
       child: Consumer<CafeState>(
-        builder: (context, state, _) {
-          final router = GoRouter(
-            refreshListenable: state,
-            initialLocation: '/tables',
-            routes: [
-              GoRoute(
-                  path: '/tables',
-                  builder: (_, __) => const WaiterTableGridScreen()),
-              GoRoute(
-                  path: '/table-details',
-                  builder: (_, __) => const TableDetailsScreen()),
-              GoRoute(
-                  path: '/waiter-menu',
-                  builder: (_, __) => const WaiterOrderScreen()),
-              GoRoute(
-                  path: '/orders',
-                  builder: (_, __) => const UnifiedOrderFeedScreen()),
-              GoRoute(
-                  path: '/menu-staff',
-                  builder: (_, __) => const StaffMenuScreen()),
-              GoRoute(
-                  path: '/chats',
-                  builder: (_, __) => const StaffChatListScreen()),
-              GoRoute(
-                  path: '/chat', builder: (_, __) => const StaffChatScreen()),
-              GoRoute(
-                  path: '/panel', builder: (_, __) => const StaffPanelScreen()),
-              GoRoute(
-                  path: '/settings',
-                  builder: (_, __) => const SettingsScreen()),
-            ],
-          );
-          return MaterialApp.router(
-            debugShowCheckedModeBanner: false,
-            title: 'CafeConnect Staff',
-            theme: AppTheme.light,
-            darkTheme: AppTheme.dark,
-            themeMode: state.themeMode,
-            routerConfig: router,
-            builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(context)
-                  .copyWith(textScaler: TextScaler.linear(state.textScale)),
-              child: child!,
-            ),
-          );
-        },
+        builder: (context, state, _) => MaterialApp.router(
+          debugShowCheckedModeBanner: false,
+          title: 'CafeConnect Staff',
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: state.themeMode,
+          routerConfig: _router,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(state.textScale)),
+            child: child!,
+          ),
+        ),
       ),
     );
   }
@@ -128,33 +132,70 @@ class AppTheme {
     final base = ThemeData(
       useMaterial3: true,
       brightness: brightness,
+      fontFamily: 'Inter',
       colorScheme: ColorScheme.fromSeed(
         seedColor: cta,
         brightness: brightness,
-        background: isDark ? const Color(0xFF17150F) : bg,
+        surface: isDark ? const Color(0xFF17150F) : bg,
       ),
       scaffoldBackgroundColor: isDark ? const Color(0xFF17150F) : bg,
-      textTheme: GoogleFonts.interTextTheme(),
     );
     return base.copyWith(
       splashFactory: NoSplash.splashFactory,
       highlightColor: Colors.transparent,
+      pageTransitionsTheme: const PageTransitionsTheme(builders: {
+        TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      }),
       cardColor: isDark ? const Color(0xFF201C15) : card,
       dividerColor: isDark ? const Color(0xFF2E2920) : separator,
-      textTheme: GoogleFonts.interTextTheme(base.textTheme).copyWith(
-        headlineLarge: GoogleFonts.inter(
-            fontSize: 28, fontWeight: FontWeight.w700, letterSpacing: -0.6),
-        titleLarge: GoogleFonts.inter(
-            fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.4),
-        titleMedium: GoogleFonts.inter(
-            fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: -0.2),
-        bodyLarge: GoogleFonts.inter(
-            fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: 0),
-        labelSmall: GoogleFonts.inter(
-            fontSize: 13, fontWeight: FontWeight.w400, letterSpacing: 0),
+      textTheme: base.textTheme.copyWith(
+        headlineLarge: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.6),
+        titleLarge: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.4),
+        titleMedium: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.2),
+        bodyLarge: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
+            letterSpacing: 0),
+        labelSmall: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            letterSpacing: 0),
       ),
     );
   }
+}
+
+// ===== TYPOGRAPHY SCALE =====
+class T {
+  static const h1 = TextStyle(fontFamily: 'Inter', fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.ink);
+  static const h2 = TextStyle(fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.ink);
+  static const h3 = TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.ink);
+
+  static const body = TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w400, color: AppTheme.ink);
+  static const bodySemi = TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.ink);
+  static const small = TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.w400, color: AppTheme.ink2);
+  static const smallSemi = TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.ink2);
+
+  static const label = TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.3, color: AppTheme.ink2);
+
+  static const price = TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.ink);
+  static const priceSmall = TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.ink);
+  static const timer = TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 0.5);
 }
 
 enum UserRole { waiter, cook, bartender, manager, admin }
@@ -438,6 +479,8 @@ class CafeState extends ChangeNotifier {
   bool showSyncToast = true;
   bool offlineModeSimulated = false;
   String activeUserName = 'Елена Соколова';
+  bool shellHideNav = false;
+  void setShellNav(bool visible) { shellHideNav = !visible; notifyListeners(); }
 
   void setSetting<T>(String key, T value, Function(T) apply) {
     apply(value);
@@ -1107,10 +1150,7 @@ class _AppButtonState extends State<AppButton> {
                     Flexible(
                         child: Text(widget.label,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                color: fg,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 16))),
+                            style: T.bodySemi.copyWith(color: fg, fontSize: 16))),
                   ],
                 ),
         ),
@@ -1234,11 +1274,7 @@ class StatusBadge extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             statusLabel(status).toUpperCase(),
-            style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.w800,
-                fontSize: 11,
-                letterSpacing: 0.5),
+            style: T.label.copyWith(color: color, fontWeight: FontWeight.w800, letterSpacing: 0.5),
           ),
         ],
       ),
@@ -1294,9 +1330,8 @@ class CategoryChip extends StatelessWidget {
             ],
             Text(
               label,
-              style: TextStyle(
+              style: T.body.copyWith(
                 color: active ? Colors.white : AppTheme.ink2,
-                fontSize: 14,
                 fontWeight: active ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
@@ -1326,10 +1361,7 @@ class NoteChip extends StatelessWidget {
           const Icon(Icons.flag, color: Color(0xFFA86A24), size: 14),
           const SizedBox(width: 6),
           Text(label,
-              style: const TextStyle(
-                  color: Color(0xFFA86A24),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600)),
+              style: T.priceSmall.copyWith(color: const Color(0xFFA86A24))),
           if (onDelete != null) ...[
             const SizedBox(width: 4),
             GestureDetector(
@@ -1377,18 +1409,12 @@ class MetricCard extends StatelessWidget {
                       BoxDecoration(color: color, shape: BoxShape.circle)),
               const SizedBox(width: 8),
               Text(label,
-                  style: const TextStyle(
-                      color: AppTheme.ink2,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500)),
+                  style: T.priceSmall.copyWith(color: AppTheme.ink2, fontWeight: FontWeight.w500)),
             ],
           ),
           const Spacer(),
           Text(value,
-              style: GoogleFonts.inter(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.ink)),
+              style: T.h2.copyWith(fontSize: 22)),
           const SizedBox(height: 4),
           Row(
             children: [
@@ -1397,9 +1423,8 @@ class MetricCard extends StatelessWidget {
                   color: isPositive ? AppTheme.success : AppTheme.danger),
               const SizedBox(width: 4),
               Text(delta,
-                  style: TextStyle(
+                  style: T.smallSemi.copyWith(
                       color: isPositive ? AppTheme.success : AppTheme.danger,
-                      fontSize: 12,
                       fontWeight: FontWeight.w700)),
             ],
           ),
@@ -1515,8 +1540,7 @@ class MenuGridItem extends StatelessWidget {
             children: [
               Expanded(
                   child: Text(item.price.rub,
-                      style: const TextStyle(
-                          color: AppTheme.cta, fontWeight: FontWeight.w700))),
+                      style: T.price.copyWith(color: AppTheme.cta))),
               if (trailing != null) trailing!,
             ],
           ),
@@ -1565,11 +1589,9 @@ class AppScaffold extends StatelessWidget {
                   child: Row(children: [
                     const Icon(Icons.wifi_off, color: Colors.white, size: 20),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                         child: Text('Нет сети · заказы сохранятся локально',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600))),
+                            style: T.bodySemi.copyWith(color: Colors.white))),
                     IconButton(
                         onPressed: () {
                           state.noConnectionDismissed = true;
@@ -1640,6 +1662,119 @@ class StaffBottomNav extends StatelessWidget {
 
 // ================= SCREENS =================
 
+// ===== MAIN SHELL (PageView tabs + swipe navigation) =====
+
+class MainShellScreen extends StatefulWidget {
+  const MainShellScreen({super.key});
+  @override
+  State<MainShellScreen> createState() => _MainShellScreenState();
+}
+
+class _MainShellScreenState extends State<MainShellScreen> {
+  late final PageController _pageController;
+  int _currentIndex = 0;
+
+  static const _labels = ['Столы', 'Заказы', 'Меню', 'Чаты', 'Панель'];
+  static const _icons = [
+    Icons.table_bar,
+    Icons.assignment,
+    Icons.restaurant_menu,
+    Icons.chat_bubble,
+    Icons.analytics,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<CafeState>();
+    return Scaffold(
+      backgroundColor: AppTheme.bg,
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: (i) => setState(() => _currentIndex = i),
+        children: const [
+          WaiterTableGridScreen(),
+          UnifiedOrderFeedScreen(),
+          StaffMenuScreen(),
+          StaffChatListScreen(),
+          StaffPanelScreen(),
+        ],
+      ),
+      bottomNavigationBar: state.shellHideNav
+          ? null
+          : _ShellBottomNav(
+              selectedIndex: _currentIndex,
+              onTap: (i) {
+                setState(() => _currentIndex = i);
+                _pageController.animateToPage(i,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut);
+              },
+              labels: _labels,
+              icons: _icons,
+            ),
+    );
+  }
+}
+
+class _ShellBottomNav extends StatelessWidget {
+  const _ShellBottomNav({
+    required this.selectedIndex,
+    required this.onTap,
+    required this.labels,
+    required this.icons,
+  });
+  final int selectedIndex;
+  final ValueChanged<int> onTap;
+  final List<String> labels;
+  final List<IconData> icons;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context)
+            .scaffoldBackgroundColor
+            .withValues(alpha: 0.92),
+        border:
+            Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+          child: NavigationBar(
+            backgroundColor: Colors.transparent,
+            indicatorColor: Colors.transparent,
+            selectedIndex: selectedIndex,
+            onDestinationSelected: onTap,
+            destinations: List.generate(labels.length, (i) {
+              final active = i == selectedIndex;
+              return NavigationDestination(
+                icon: Icon(icons[i],
+                    color: active
+                        ? AppTheme.ink
+                        : const Color(0xFFA8A091)),
+                label: labels[i],
+              );
+            }),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class WaiterTableGridScreen extends StatefulWidget {
   const WaiterTableGridScreen({super.key});
   @override
@@ -1660,7 +1795,7 @@ class _WaiterTableGridScreenState extends State<WaiterTableGridScreen> {
     }).toList();
 
     return AppScaffold(
-      bottomNav: const StaffBottomNav(current: '/tables'),
+      bottomNav: null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1733,28 +1868,33 @@ class _WaiterTableGridScreenState extends State<WaiterTableGridScreen> {
                     icon: Icons.table_restaurant_outlined,
                     title: 'Ничего не найдено',
                     sub: 'Нет столов с таким фильтром или номером')
-                : GridView.builder(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: state.tablesPerRow,
-                        crossAxisSpacing: 14,
-                        mainAxisSpacing: 14,
-                        childAspectRatio: 0.85),
-                    itemCount: filtered.length,
-                    itemBuilder: (_, i) {
-                      final table = filtered[i];
-                      return TableCard(
-                        table: table,
-                        index: i,
-                        onTap: () {
-                          state.currentTable = table;
-                          GoRouter.of(context).push('/table-details');
-                        },
-                        onLongPress: () {
-                          HapticFeedback.mediumImpact();
-                          _showTableOptions(context, table);
-                        },
-                      );
-                    },
+                : RefreshIndicator(
+                    color: AppTheme.cta,
+                    onRefresh: () async => context.read<CafeState>().refresh(),
+                    child: GridView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: state.tablesPerRow,
+                          crossAxisSpacing: 14,
+                          mainAxisSpacing: 14,
+                          childAspectRatio: 0.85),
+                      itemCount: filtered.length,
+                      itemBuilder: (_, i) {
+                        final table = filtered[i];
+                        return TableCard(
+                          table: table,
+                          index: i,
+                          onTap: () {
+                            state.currentTable = table;
+                            GoRouter.of(context).push('/table-details');
+                          },
+                          onLongPress: () {
+                            HapticFeedback.mediumImpact();
+                            _showTableOptions(context, table);
+                          },
+                        );
+                      },
+                    ),
                   ),
           ),
         ],
@@ -1775,8 +1915,7 @@ class _WaiterTableGridScreenState extends State<WaiterTableGridScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('Стол ${table.number}',
-                style:
-                    const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                style: T.h2.copyWith(fontSize: 20)),
             const SizedBox(height: 20),
             AppButton(
                 label: 'Быстрый чек',
@@ -1835,8 +1974,7 @@ class _WaiterTableGridScreenState extends State<WaiterTableGridScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(table == null ? 'Новый стол' : 'Редактировать стол',
-                    style: const TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.w800)),
+                    style: T.h1.copyWith(fontSize: 22)),
                 const SizedBox(height: 20),
                 AppTextField(
                     controller: numController,
@@ -1844,10 +1982,7 @@ class _WaiterTableGridScreenState extends State<WaiterTableGridScreen> {
                     keyboardType: TextInputType.number),
                 const SizedBox(height: 24),
                 const Text('ЦВЕТ МЕТКИ',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.ink3)),
+                    style: T.label),
                 const SizedBox(height: 12),
                 SizedBox(
                   height: 50,
@@ -1921,8 +2056,8 @@ class _WaiterTableGridScreenState extends State<WaiterTableGridScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Фильтр по статусу',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+            Text('Фильтр по статусу',
+                style: T.h2.copyWith(fontSize: 20)),
             const SizedBox(height: 20),
             Wrap(
               spacing: 10,
@@ -1982,20 +2117,14 @@ class TableCard extends StatelessWidget {
               top: 0,
               left: 0,
               child: Text('#${table.number}',
-                  style: const TextStyle(
-                      color: AppTheme.ink3,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600))),
+                  style: T.label.copyWith(color: AppTheme.ink3, fontSize: 10))),
           Positioned(top: 0, right: 0, child: StatusBadge(table.status)),
           Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text('${table.number}',
-                    style: GoogleFonts.inter(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.ink)),
+                    style: T.h1.copyWith(fontSize: 32)),
                 const SizedBox(height: 4),
                 Container(
                   padding:
@@ -2004,10 +2133,7 @@ class TableCard extends StatelessWidget {
                       color: color.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8)),
                   child: Text(statusLabel(table.status),
-                      style: TextStyle(
-                          color: color,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800)),
+                      style: T.label.copyWith(color: color, fontSize: 10, fontWeight: FontWeight.w800)),
                 ),
               ],
             ),
@@ -2024,10 +2150,7 @@ class TableCard extends StatelessWidget {
                         .tableCart(table.id)
                         .fold(0.0, (s, l) => s + l.total)
                         .rub,
-                style: const TextStyle(
-                    color: AppTheme.ink2,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600),
+                style: T.label.copyWith(color: AppTheme.ink2),
               ),
             ),
           ),
@@ -2111,34 +2234,27 @@ class QuickCheckOverlay extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           const Text('Открыт 14:05 · Елена',
-                              style: TextStyle(
-                                  color: AppTheme.ink2, fontSize: 13)),
+                              style: T.priceSmall),
                           const Divider(height: 32),
                           if (items.isEmpty)
                             const Center(
                                 child: Padding(
                                     padding: EdgeInsets.symmetric(vertical: 32),
                                     child: Text('Чек пуст',
-                                        style: TextStyle(
-                                            color: AppTheme.ink3,
-                                            fontSize: 16))))
+                                        style: T.body)))
                           else
                             ...items.map((l) => Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
                                   child: Row(
                                     children: [
                                       Text('${l.quantity}×',
-                                          style: GoogleFonts.robotoMono(
-                                              color: AppTheme.ink2,
-                                              fontWeight: FontWeight.w700)),
+                                          style: T.timer.copyWith(color: AppTheme.ink2)),
                                       const SizedBox(width: 12),
                                       Expanded(
                                           child: Text(l.item.name,
-                                              style: GoogleFonts.robotoMono(
-                                                  fontSize: 14))),
+                                              style: T.body)),
                                       Text(l.total.rub,
-                                          style: GoogleFonts.robotoMono(
-                                              fontWeight: FontWeight.w700)),
+                                          style: T.timer),
                                     ],
                                   ),
                                 )),
@@ -2147,14 +2263,9 @@ class QuickCheckOverlay extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text('ИТОГО',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 20)),
+                                  style: T.h2),
                               Text(total.rub,
-                                  style: GoogleFonts.robotoMono(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 20,
-                                      color: AppTheme.cta)),
+                                  style: T.h2.copyWith(color: AppTheme.cta)),
                             ],
                           ),
                           const SizedBox(height: 24),
@@ -2186,10 +2297,7 @@ class QuickCheckOverlay extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               const Text('Нажмите на фон, чтобы закрыть',
-                  style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500)),
+                  style: T.priceSmall),
             ],
           ),
         ),
@@ -2229,8 +2337,8 @@ class _TableDetailsScreenState extends State<TableDetailsScreen> {
                   children: [
                     Text('Стол${table.number}',
                         style: Theme.of(context).textTheme.headlineLarge),
-                    const Text('Открыт 14:05 · Елена',
-                        style: TextStyle(color: AppTheme.ink2, fontSize: 13)),
+                    Text('Открыт 14:05 · Елена',
+                        style: T.priceSmall.copyWith(color: AppTheme.ink2)),
                   ],
                 ),
               ),
@@ -2252,9 +2360,7 @@ class _TableDetailsScreenState extends State<TableDetailsScreen> {
                               size: 48, color: AppTheme.separator),
                           const SizedBox(height: 16),
                           const Text('Чек пуст',
-                              style: TextStyle(
-                                  color: AppTheme.ink2,
-                                  fontWeight: FontWeight.w600)),
+                              style: T.bodySemi),
                           const SizedBox(height: 16),
                           AppButton(
                               label: 'Добавить блюдо',
@@ -2275,36 +2381,32 @@ class _TableDetailsScreenState extends State<TableDetailsScreen> {
                           child: Row(
                             children: [
                               Text('${l.quantity}×',
-                                  style: GoogleFonts.robotoMono(
-                                      color: AppTheme.ink2,
-                                      fontWeight: FontWeight.w700)),
+                                  style: T.timer.copyWith(color: AppTheme.ink2)),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(l.item.name,
-                                        style: GoogleFonts.robotoMono(
-                                            fontWeight: FontWeight.w600)),
+                                        style: T.bodySemi),
                                     if (l.sent)
                                       Text(
                                           l.item.category == 'Напитки' ||
                                                   l.item.category == 'Кофе'
                                               ? 'В баре ✓'
                                               : 'На кухне ✓',
-                                          style: TextStyle(
+                                          style: T.label.copyWith(
                                               color: l.item.category ==
                                                           'Напитки' ||
                                                       l.item.category == 'Кофе'
                                                   ? AppTheme.bar
                                                   : AppTheme.warning,
-                                              fontSize: 10,
                                               fontWeight: FontWeight.w800)),
                                   ],
                                 ),
                               ),
                               Text(l.total.rub,
-                                  style: GoogleFonts.robotoMono()),
+                                  style: T.timer),
                             ],
                           ),
                         ),
@@ -2315,13 +2417,9 @@ class _TableDetailsScreenState extends State<TableDetailsScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text('ИТОГО',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w900, fontSize: 20)),
+                          style: T.h2),
                       Text(total.rub,
-                          style: GoogleFonts.robotoMono(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 20,
-                              color: AppTheme.cta)),
+                          style: T.h2.copyWith(color: AppTheme.cta)),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -2330,9 +2428,44 @@ class _TableDetailsScreenState extends State<TableDetailsScreen> {
                       icon: Icons.cleaning_services,
                       kind: ButtonKind.ghost,
                       color: AppTheme.danger,
-                      onPressed: () {
-                        state.closeTable(table);
-                        context.pop();
+                      onPressed: () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            backgroundColor: AppTheme.card,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20)),
+                            title: Text(
+                              'Очистить стол ${table.number}?',
+                              style: T.h2,
+                            ),
+                            content: const Text(
+                              'Заказ будет удалён. Убедитесь, что оплата прошла в кассе.',
+                              style: T.body,
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Отмена'),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.danger,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
+                                ),
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('Да, очистить',
+                                    style: T.bodySemi),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirmed == true && context.mounted) {
+                          state.closeTable(table);
+                          context.pop();
+                        }
                       }),
                   const SizedBox(height: 8),
                   AppButton(
@@ -2365,14 +2498,13 @@ class _TableDetailsScreenState extends State<TableDetailsScreen> {
                         decoration: BoxDecoration(
                             border: Border.all(color: AppTheme.separator),
                             borderRadius: BorderRadius.circular(10)),
-                        child: const Row(
+                        child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.add, size: 14, color: AppTheme.ink2),
-                              SizedBox(width: 4),
+                              const Icon(Icons.add, size: 14, color: AppTheme.ink2),
+                              const SizedBox(width: 4),
                               Text('Добавить',
-                                  style: TextStyle(
-                                      color: AppTheme.ink2, fontSize: 13))
+                                  style: T.priceSmall.copyWith(color: AppTheme.ink2))
                             ]),
                       ),
                     ),
@@ -2459,7 +2591,7 @@ class _TableDetailsScreenState extends State<TableDetailsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text('Новая заметка',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  style: T.h2),
               const SizedBox(height: 16),
               AppTextField(
                   controller: noteController,
@@ -2505,21 +2637,16 @@ class _TableDetailsScreenState extends State<TableDetailsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Калькулятор сдачи',
-                    style:
-                        TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                Text('Калькулятор сдачи',
+                    style: T.h1.copyWith(fontSize: 22)),
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('К оплате:',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600)),
+                    Text('К оплате:',
+                        style: T.bodySemi.copyWith(fontSize: 16)),
                     Text(total.rub,
-                        style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.cta)),
+                        style: T.h2.copyWith(color: AppTheme.cta)),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -2541,16 +2668,12 @@ class _TableDetailsScreenState extends State<TableDetailsScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('СДАЧА:',
-                          style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1)),
+                      Text('СДАЧА:',
+                          style: T.label.copyWith(
+                              fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 1)),
                       Text(change.rub,
-                          style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w900,
-                              color: AppTheme.success)),
+                          style: T.h1.copyWith(
+                              fontSize: 24, fontWeight: FontWeight.w900, color: AppTheme.success)),
                     ],
                   ),
                 ),
@@ -2566,51 +2689,106 @@ class _TableDetailsScreenState extends State<TableDetailsScreen> {
   }
 }
 
-class WaiterOrderScreen extends StatelessWidget {
+class WaiterOrderScreen extends StatefulWidget {
   const WaiterOrderScreen({super.key});
+  @override
+  State<WaiterOrderScreen> createState() => _WaiterOrderScreenState();
+}
+
+class _WaiterOrderScreenState extends State<WaiterOrderScreen> {
+  final Map<MenuItem, int> _selQty = {};
+  bool _selMode = false;
+
+  void _enterSel(MenuItem item) =>
+      setState(() { _selMode = true; _selQty[item] = 1; });
+
+  void _toggleItem(MenuItem item) => setState(() {
+        if (_selQty.containsKey(item)) {
+          _selQty.remove(item);
+          if (_selQty.isEmpty) _selMode = false;
+        } else {
+          _selQty[item] = 1;
+        }
+      });
+
+  void _exitSel() => setState(() { _selMode = false; _selQty.clear(); });
+
+  void _openPrecheck(BuildContext context, String tableId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PrecheckSheet(
+        selectionQty: Map.from(_selQty),
+        fixedTableId: tableId,
+        onConfirmed: () => setState(() { _selMode = false; _selQty.clear(); }),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<CafeState>();
     final table = state.currentTable ?? state.tables.first;
+    final items = state.filteredMenu();
+    final total = _selQty.entries.fold(0.0, (s, e) => s + e.key.price * e.value);
+
     return AppScaffold(
-      child: Column(
-        children: [
-          Header(
-              title: 'Заказ Стол${table.number}',
-              subtitle: 'Выберите блюда из меню'),
+      child: Stack(children: [
+        Column(children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(children: [
+              IconButton(
+                onPressed: _selMode ? _exitSel : () => context.pop(),
+                icon: Icon(_selMode ? Icons.close : Icons.arrow_back,
+                    color: AppTheme.ink),
+              ),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(_selMode ? 'Выбрано: ${_selQty.length}' : 'Стол ${table.number}',
+                      style: Theme.of(context).textTheme.headlineLarge),
+                  Text(_selMode ? total.rub : 'Добавить в заказ',
+                      style: T.priceSmall.copyWith(color: AppTheme.ink2)),
+                ]),
+              ),
+            ]),
+          ),
+          _StaffMenuChips(),
+          const SizedBox(height: 8),
           Expanded(
-            child: CustomScrollView(
-              slivers: [
-                SliverPersistentHeader(pinned: true, delegate: _ChipHeader()),
-                SliverPadding(
-                  padding: const EdgeInsets.only(top: 12, bottom: 80),
-                  sliver: SliverGrid(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 12,
-                            crossAxisSpacing: 12,
-                            childAspectRatio: 0.68),
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final item = state.filteredMenu()[index];
-                      return MenuGridItem(
-                          item: item,
-                          index: index,
-                          onTap: () => showDishDetails(context, item,
-                              tableId: table.id));
-                    }, childCount: state.filteredMenu().length),
-                  ),
-                ),
-              ],
+            child: GridView.builder(
+              padding: EdgeInsets.only(top: 8, bottom: _selMode ? 100 : 40),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 0.62),
+              itemCount: items.length,
+              itemBuilder: (ctx, i) {
+                final item = items[i];
+                final qty = _selQty[item];
+                return _SelectableMenuCard(
+                  item: item,
+                  isSelected: qty != null,
+                  qty: qty ?? 1,
+                  selectionMode: _selMode,
+                  onTap: () => _selMode ? _toggleItem(item) : showDishDetails(ctx, item, tableId: table.id),
+                  onLongPress: () => _enterSel(item),
+                  onQtyChanged: (v) => setState(() => _selQty[item] = v),
+                );
+              },
             ),
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppTheme.cta,
-        onPressed: () => context.pop(),
-        child: const Icon(Icons.check, color: Colors.white),
-      ),
+        ]),
+        if (_selMode && _selQty.isNotEmpty)
+          Positioned(
+            bottom: 0, left: 0, right: 0,
+            child: _SelectionBar(
+              count: _selQty.length,
+              total: total,
+              onCancel: _exitSel,
+              onNext: () => _openPrecheck(context, table.id),
+            ),
+          ),
+      ]),
     );
   }
 }
@@ -2644,7 +2822,7 @@ class _UnifiedOrderFeedScreenState extends State<UnifiedOrderFeedScreen>
         .toList();
 
     return AppScaffold(
-      bottomNav: const StaffBottomNav(current: '/orders'),
+      bottomNav: null,
       child: Column(
         children: [
           Header(
@@ -2758,19 +2936,13 @@ class OrderCard extends StatelessWidget {
                           color: zoneColor,
                           borderRadius: BorderRadius.circular(10)),
                       child: Text('СТОЛ${table?.number ?? '??'}',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 13)),
+                          style: T.priceSmall.copyWith(color: Colors.white, fontWeight: FontWeight.w900)),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                         child: Text(
                             '#${order.id} ·${order.splitTo == FeedType.kitchen ? 'Кухня' : 'Бар'}',
-                            style: const TextStyle(
-                                color: AppTheme.ink2,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600))),
+                            style: T.priceSmall.copyWith(color: AppTheme.ink2))),
                     _LiveTimer(createdAt: order.createdAt, color: color),
                   ],
                 ),
@@ -2781,16 +2953,11 @@ class OrderCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('${line.quantity}×',
-                              style: TextStyle(
-                                  color: zoneColor,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 15)),
+                              style: T.price.copyWith(color: zoneColor, fontWeight: FontWeight.w900)),
                           const SizedBox(width: 8),
                           Expanded(
                               child: Text(line.item.name,
-                                  style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600))),
+                                  style: T.h3)),
                         ],
                       ),
                     )),
@@ -2802,7 +2969,10 @@ class OrderCard extends StatelessWidget {
                             label: order.status == OrderStatus.ready
                                 ? 'Завершить'
                                 : 'Готово',
-                            onPressed: () => state.markReady(order))),
+                            onPressed: () {
+                              state.markReady(order);
+                              context.go('/tables');
+                            })),
                     const SizedBox(width: 12),
                     AppButton(
                         label: '',
@@ -2831,257 +3001,639 @@ class StaffMenuScreen extends StatefulWidget {
 }
 
 class _StaffMenuScreenState extends State<StaffMenuScreen> {
-  final Set<MenuItem> selectedItems = {};
-  bool selectionMode = false;
+  final Map<MenuItem, int> _selQty = {};
+  bool _selMode = false;
+
+  void _enterSel(MenuItem item) {
+    context.read<CafeState>().setShellNav(false);
+    setState(() { _selMode = true; _selQty[item] = 1; });
+  }
+
+  void _toggleItem(MenuItem item) => setState(() {
+        if (_selQty.containsKey(item)) {
+          _selQty.remove(item);
+          if (_selQty.isEmpty) _exitSel();
+        } else {
+          _selQty[item] = 1;
+        }
+      });
+
+  void _exitSel() {
+    context.read<CafeState>().setShellNav(true);
+    setState(() { _selMode = false; _selQty.clear(); });
+  }
+
+  void _openPrecheck(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PrecheckSheet(
+        selectionQty: Map.from(_selQty),
+        fixedTableId: null,
+        onConfirmed: () => setState(() { _selMode = false; _selQty.clear(); }),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<CafeState>();
     final items = state.filteredMenu();
+    final total = _selQty.entries.fold(0.0, (s, e) => s + e.key.price * e.value);
 
     return AppScaffold(
-      bottomNav:
-          selectionMode ? null : const StaffBottomNav(current: '/menu-staff'),
-      child: Column(
-        children: [
+      bottomNav: null,
+      child: Stack(children: [
+        Column(children: [
           Header(
-            title: selectionMode ? 'Выбрано: ${selectedItems.length}' : 'Меню',
-            subtitle: selectionMode
-                ? 'Нажмите на позиции для выбора'
-                : 'Витрина для персонала',
+            title: _selMode ? 'Выбрано: ${_selQty.length}' : 'Меню',
+            subtitle: _selMode ? total.rub : 'Витрина для персонала',
             actions: [
-              if (selectionMode && selectedItems.isNotEmpty)
+              if (_selMode)
                 IconButton(
-                  icon: const Icon(Icons.check_circle,
-                      color: AppTheme.success, size: 28),
-                  onPressed: () =>
-                      _showAssignTableSheet(context, selectedItems.toList()),
+                  icon: const Icon(Icons.close, color: AppTheme.ink),
+                  onPressed: _exitSel,
+                )
+              else
+                IconButton(
+                  icon: const Icon(Icons.select_all, color: AppTheme.ink2),
+                  tooltip: 'Зажмите карточку для выбора',
+                  onPressed: null,
                 ),
-              IconButton(
-                icon: Icon(selectionMode ? Icons.close : Icons.select_all,
-                    color: AppTheme.ink),
-                onPressed: () {
-                  setState(() {
-                    selectionMode = !selectionMode;
-                    if (!selectionMode) selectedItems.clear();
-                  });
-                },
-              ),
             ],
           ),
-          if (!selectionMode) ...[
+          if (!_selMode) ...[
             AppCard(
               padding: EdgeInsets.zero,
               child: TextField(
-                onChanged: (v) {
-                  state.menuSearch = v;
-                  state.refresh();
-                },
+                onChanged: (v) { state.menuSearch = v; state.refresh(); },
                 decoration: const InputDecoration(
                   hintText: 'Поиск блюда...',
                   prefixIcon: Icon(Icons.search, color: AppTheme.ink3),
                   border: InputBorder.none,
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _StaffMenuChips(),
+            const SizedBox(height: 4),
           ],
           Expanded(
             child: GridView.builder(
-              padding: const EdgeInsets.only(top: 12, bottom: 40),
+              padding: EdgeInsets.only(top: 12, bottom: _selMode ? 100 : 40),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 0.72),
+                  crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 0.62),
               itemCount: items.length,
-              itemBuilder: (context, i) {
+              itemBuilder: (ctx, i) {
                 final item = items[i];
-                final isSelected = selectedItems.contains(item);
-                final zoneColor =
-                    (item.category == 'Напитки' || item.category == 'Кофе')
-                        ? AppTheme.bar
-                        : AppTheme.warning;
-
-                return Stack(
-                  children: [
-                    AppCard(
-                      index: i,
-                      padding: const EdgeInsets.all(10),
-                      borderColor: isSelected ? AppTheme.cta : null,
-                      onTap: () {
-                        if (selectionMode) {
-                          setState(() {
-                            if (isSelected)
-                              selectedItems.remove(item);
-                            else
-                              selectedItems.add(item);
-                          });
-                        } else {
-                          _showStaffDishDetails(context, item);
-                        }
-                      },
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Stack(
-                            children: [
-                              MenuImage(item.imageUrl, radius: 13),
-                              Positioned(
-                                  top: 6,
-                                  left: 6,
-                                  child: Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: BoxDecoration(
-                                          color: zoneColor,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                              color: Colors.white,
-                                              width: 1.5)))),
-                              Positioned(
-                                  bottom: 6,
-                                  right: 6,
-                                  child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                          color: Colors.black54,
-                                          borderRadius:
-                                              BorderRadius.circular(6)),
-                                      child: Row(children: [
-                                        const Icon(Icons.schedule,
-                                            size: 10, color: Colors.white),
-                                        const SizedBox(width: 2),
-                                        Text('${item.prepTime}м',
-                                            style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 9,
-                                                fontWeight: FontWeight.w700))
-                                      ]))),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(item.name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700, fontSize: 15)),
-                          const Spacer(),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(item.price.rub,
-                                  style: const TextStyle(
-                                      color: AppTheme.cta,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 14)),
-                              Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                      color: item.available
-                                          ? AppTheme.success
-                                          : AppTheme.danger,
-                                      shape: BoxShape.circle)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (isSelected)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                              color: AppTheme.cta, shape: BoxShape.circle),
-                          child: const Icon(Icons.check,
-                              color: Colors.white, size: 14),
-                        ),
-                      ),
-                  ],
+                final qty = _selQty[item];
+                return _SelectableMenuCard(
+                  item: item,
+                  isSelected: qty != null,
+                  qty: qty ?? 1,
+                  selectionMode: _selMode,
+                  onTap: () => _selMode ? _toggleItem(item) : _showStaffDishDetails(ctx, item),
+                  onLongPress: () => _enterSel(item),
+                  onQtyChanged: (v) => setState(() => _selQty[item] = v),
                 );
               },
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  void _showAssignTableSheet(BuildContext context, List<MenuItem> items) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: const BoxDecoration(
-            color: AppTheme.card,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Открыть стол',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            Text('Выберите стол для заказа из ${items.length} позиций',
-                style: const TextStyle(color: AppTheme.ink2)),
-            const SizedBox(height: 24),
-            SizedBox(
-              height: 300,
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10),
-                itemCount: context.read<CafeState>().tables.length,
-                itemBuilder: (context, index) {
-                  final table = context.read<CafeState>().tables[index];
-                  return AppCard(
-                    padding: EdgeInsets.zero,
-                    elevation: false,
-                    onTap: () {
-                      for (var item in items) {
-                        context
-                            .read<CafeState>()
-                            .addToCart(item, 1, '', tableId: table.id);
-                      }
-                      Navigator.pop(context);
-                      setState(() {
-                        selectionMode = false;
-                        selectedItems.clear();
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content:
-                              Text('Заказ добавлен на Стол ${table.number}')));
-                    },
-                    child: Center(
-                      child: Text('${table.number}',
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.w700)),
-                    ),
-                  );
-                },
-              ),
+        ]),
+        if (_selMode && _selQty.isNotEmpty)
+          Positioned(
+            bottom: 0, left: 0, right: 0,
+            child: _SelectionBar(
+              count: _selQty.length,
+              total: total,
+              onCancel: _exitSel,
+              onNext: () => _openPrecheck(context),
             ),
-            const SizedBox(height: 24),
-            AppButton(
-                label: 'Отмена',
-                kind: ButtonKind.secondary,
-                onPressed: () => Navigator.pop(context)),
-          ],
-        ),
-      ),
+          ),
+      ]),
     );
   }
 }
+
+// ===== SHARED SELECTION-MODE WIDGETS =====
+
+class _SelectableMenuCard extends StatelessWidget {
+  const _SelectableMenuCard({
+    required this.item,
+    required this.isSelected,
+    required this.qty,
+    required this.selectionMode,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onQtyChanged,
+  });
+  final MenuItem item;
+  final bool isSelected;
+  final int qty;
+  final bool selectionMode;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final ValueChanged<int> onQtyChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final zoneColor = (item.category == 'Напитки' || item.category == 'Кофе')
+        ? AppTheme.bar
+        : AppTheme.warning;
+
+    return GestureDetector(
+      onLongPress: onLongPress,
+      child: Stack(children: [
+        AppCard(
+          padding: const EdgeInsets.all(10),
+          borderColor: isSelected ? AppTheme.bar : null,
+          onTap: onTap,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Stack(children: [
+              MenuImage(item.imageUrl, radius: 13),
+              Positioned(
+                  top: 6,
+                  left: 6,
+                  child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                          color: zoneColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5)))),
+              Positioned(
+                  bottom: 6,
+                  right: 6,
+                  child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration:
+                          BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
+                      child: Row(children: [
+                        const Icon(Icons.schedule, size: 10, color: Colors.white),
+                        const SizedBox(width: 2),
+                        Text('${item.prepTime}м',
+                            style: T.label.copyWith(
+                                color: Colors.white, fontSize: 9)),
+                      ]))),
+              if (isSelected)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                        color: AppTheme.bar.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(13)),
+                  ),
+                ),
+            ]),
+            const SizedBox(height: 8),
+            Text(item.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: T.bodySemi),
+            if (item.description.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(item.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: T.small),
+            ],
+            const Spacer(),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text(item.price.rub,
+                  style: T.price.copyWith(color: AppTheme.cta)),
+              if (!selectionMode)
+                Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                        color: item.available ? AppTheme.success : AppTheme.danger,
+                        shape: BoxShape.circle)),
+            ]),
+            if (isSelected) ...[
+              const SizedBox(height: 8),
+              Center(child: _CompactStepper(value: qty, onChanged: onQtyChanged)),
+            ],
+          ]),
+        ),
+        // Circle checkbox
+        if (selectionMode)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.bar : Colors.white.withValues(alpha: 0.9),
+                shape: BoxShape.circle,
+                border: Border.all(
+                    color: isSelected ? AppTheme.bar : AppTheme.ink2, width: 1.5),
+              ),
+              child: isSelected
+                  ? const Icon(Icons.check, color: Colors.white, size: 14)
+                  : null,
+            ),
+          ),
+      ]),
+    );
+  }
+}
+
+class _CompactStepper extends StatelessWidget {
+  const _CompactStepper({required this.value, required this.onChanged});
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      _btn(Icons.remove, () { if (value > 1) onChanged(value - 1); }),
+      SizedBox(
+          width: 30,
+          child: Center(
+              child: Text('$value',
+                  style: T.bodySemi))),
+      _btn(Icons.add, () => onChanged(value + 1)),
+    ]);
+  }
+
+  Widget _btn(IconData icon, VoidCallback action) => GestureDetector(
+        onTap: () { HapticFeedback.selectionClick(); action(); },
+        child: Container(
+          width: 26,
+          height: 26,
+          decoration: const BoxDecoration(
+              color: AppTheme.surfaceSunken, shape: BoxShape.circle),
+          child: Icon(icon, size: 14),
+        ),
+      );
+}
+
+class _SelectionBar extends StatelessWidget {
+  const _SelectionBar({
+    required this.count,
+    required this.total,
+    required this.onCancel,
+    required this.onNext,
+  });
+  final int count;
+  final double total;
+  final VoidCallback onCancel;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+          16, 12, 16, MediaQuery.viewPaddingOf(context).bottom + 12),
+      decoration: const BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [AppTheme.shadowSheet],
+      ),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text('Выбрано: $count',
+                style: T.smallSemi),
+            Text(total.rub,
+                style: T.h2),
+          ]),
+        ),
+        TextButton(
+          onPressed: onCancel,
+          child: const Text('Отмена', style: T.body),
+        ),
+        const SizedBox(width: 8),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.cta,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          ),
+          onPressed: onNext,
+          child: const Text('Далее →', style: T.bodySemi),
+        ),
+      ]),
+    );
+  }
+}
+
+// ===== PRECHECK SHEET =====
+
+class _PrecheckSheet extends StatefulWidget {
+  const _PrecheckSheet({
+    required this.selectionQty,
+    required this.fixedTableId,
+    this.onConfirmed,
+  });
+  final Map<MenuItem, int> selectionQty;
+  final String? fixedTableId;
+  final VoidCallback? onConfirmed;
+
+  @override
+  State<_PrecheckSheet> createState() => _PrecheckSheetState();
+}
+
+class _PrecheckSheetState extends State<_PrecheckSheet> {
+  late final Map<MenuItem, int> _items;
+  final Map<MenuItem, TextEditingController> _noteCtrl = {};
+  final Map<MenuItem, bool> _noteExp = {};
+  String? _tableId;
+
+  @override
+  void initState() {
+    super.initState();
+    _items = Map.from(widget.selectionQty);
+    _tableId = widget.fixedTableId;
+    for (final item in _items.keys) {
+      _noteCtrl[item] = TextEditingController();
+      _noteExp[item] = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final c in _noteCtrl.values) c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<CafeState>();
+    final total = _items.entries.fold(0.0, (s, e) => s + e.key.price * e.value);
+    final kitchenItems = _items.entries
+        .where((e) => e.key.category != 'Напитки' && e.key.category != 'Кофе')
+        .toList();
+    final barItems = _items.entries
+        .where((e) => e.key.category == 'Напитки' || e.key.category == 'Кофе')
+        .toList();
+    final selectedTable = _tableId != null
+        ? state.tables.firstWhereOrNull((t) => t.id == _tableId)
+        : null;
+
+    return Container(
+      height: MediaQuery.sizeOf(context).height * 0.88,
+      decoration: const BoxDecoration(
+        color: AppTheme.bg,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(children: [
+        Center(
+          child: Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 4),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+                color: AppTheme.separator, borderRadius: BorderRadius.circular(2)),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(children: [
+            IconButton(
+                icon: const Icon(Icons.arrow_back, color: AppTheme.ink),
+                onPressed: () => Navigator.pop(context)),
+            Expanded(
+                child: Text('Новый заказ',
+                    style: T.h1.copyWith(fontSize: 20))),
+          ]),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Table section
+              if (widget.fixedTableId == null) ...[
+                const Text('СТОЛ', style: T.label),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 40,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: state.tables.map((t) {
+                      final active = _tableId == t.id;
+                      return GestureDetector(
+                        onTap: () => setState(() => _tableId = t.id),
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: active ? AppTheme.cta : AppTheme.card,
+                            borderRadius: BorderRadius.circular(11),
+                            border: Border.all(
+                                color: active ? AppTheme.cta : AppTheme.separator),
+                          ),
+                          child: Text('Стол ${t.number}',
+                              style: T.priceSmall.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: active ? Colors.white : AppTheme.ink)),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ] else if (selectedTable != null) ...[
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                      color: AppTheme.surfaceSunken,
+                      borderRadius: BorderRadius.circular(11)),
+                  child: Row(children: [
+                    const Icon(Icons.table_restaurant,
+                        size: 16, color: AppTheme.ink2),
+                    const SizedBox(width: 8),
+                    Text('Стол ${selectedTable.number}',
+                        style: T.bodySemi),
+                  ]),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // Items
+              const Text('ПОЗИЦИИ', style: T.label),
+              const SizedBox(height: 12),
+              ..._items.entries.map((entry) => _PrecheckItemRow(
+                    item: entry.key,
+                    qty: entry.value,
+                    noteController: _noteCtrl[entry.key]!,
+                    expanded: _noteExp[entry.key] ?? false,
+                    onQtyChanged: (v) => setState(() => _items[entry.key] = v),
+                    onToggleNote: () => setState(
+                        () => _noteExp[entry.key] = !(_noteExp[entry.key] ?? false)),
+                    onPreset: (p) {
+                      final c = _noteCtrl[entry.key]!;
+                      c.text = c.text.isEmpty ? p : '${c.text}, $p';
+                    },
+                  )),
+
+              // Split preview
+              const Divider(height: 24),
+              if (kitchenItems.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(children: [
+                    const Icon(Icons.restaurant, size: 16, color: AppTheme.warning),
+                    const SizedBox(width: 8),
+                    Text('Кухня: ${kitchenItems.length} блюд',
+                        style: T.bodySemi.copyWith(color: AppTheme.warning)),
+                  ]),
+                ),
+              if (barItems.isNotEmpty)
+                Row(children: [
+                  const Icon(Icons.local_bar, size: 16, color: AppTheme.bar),
+                  const SizedBox(width: 8),
+                  Text('Бар: ${barItems.length} напиток',
+                      style: T.bodySemi.copyWith(color: AppTheme.bar)),
+                ]),
+              const Divider(height: 32),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Text('ИТОГО', style: T.h2),
+                Text(total.rub, style: T.h2.copyWith(color: AppTheme.cta)),
+              ]),
+              const SizedBox(height: 24),
+            ]),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+              20, 0, 20, MediaQuery.viewPaddingOf(context).bottom + 16),
+          child: SizedBox(
+            height: 52,
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor:
+                    _tableId != null ? AppTheme.cta : AppTheme.separator,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+              onPressed: _tableId == null ? null : () => _confirm(context, state),
+              child: const Text('ОТПРАВИТЬ ЗАКАЗ',
+                  style: T.bodySemi),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  void _confirm(BuildContext context, CafeState state) {
+    final tableId = _tableId!;
+    final table = state.tables.firstWhere((t) => t.id == tableId);
+    final kitchenCount = _items.entries
+        .where((e) => e.key.category != 'Напитки' && e.key.category != 'Кофе')
+        .length;
+    final barCount = _items.entries
+        .where((e) => e.key.category == 'Напитки' || e.key.category == 'Кофе')
+        .length;
+
+    for (final entry in _items.entries) {
+      final note = _noteCtrl[entry.key]?.text.trim() ?? '';
+      state.addToCart(entry.key, entry.value, note, tableId: tableId);
+    }
+    state.submitOrder(tableId: tableId);
+
+    Navigator.pop(context);
+    widget.onConfirmed?.call();
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(
+          'Заказ на Стол ${table.number} отправлен · Кухня $kitchenCount · Бар $barCount'),
+      backgroundColor: AppTheme.success,
+    ));
+  }
+}
+
+class _PrecheckItemRow extends StatelessWidget {
+  const _PrecheckItemRow({
+    required this.item,
+    required this.qty,
+    required this.noteController,
+    required this.expanded,
+    required this.onQtyChanged,
+    required this.onToggleNote,
+    required this.onPreset,
+  });
+  final MenuItem item;
+  final int qty;
+  final TextEditingController noteController;
+  final bool expanded;
+  final ValueChanged<int> onQtyChanged;
+  final VoidCallback onToggleNote;
+  final ValueChanged<String> onPreset;
+
+  static const _presets = [
+    'Без лука',
+    'Без льда',
+    'Остро',
+    'Навынос',
+    'Без сахара',
+    'Хорошо прожарить',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [AppTheme.shadowCard],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+              child: Text(item.name,
+                  style: T.price)),
+          Text((item.price * qty).rub,
+              style: T.bodySemi.copyWith(color: AppTheme.cta)),
+        ]),
+        const SizedBox(height: 12),
+        Row(children: [
+          _CompactStepper(value: qty, onChanged: onQtyChanged),
+          const Spacer(),
+          GestureDetector(
+            onTap: onToggleNote,
+            child: Text(expanded ? '− заметка' : '+ примечание',
+                style: T.priceSmall.copyWith(color: AppTheme.bar)),
+          ),
+        ]),
+        if (expanded) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: _presets
+                .map((p) => GestureDetector(
+                      onTap: () => onPreset(p),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                            color: AppTheme.surfaceSunken,
+                            borderRadius: BorderRadius.circular(9)),
+                        child: Text(p, style: T.smallSemi),
+                      ),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: 10),
+          AppTextField(controller: noteController, label: 'Примечание...'),
+        ],
+      ]),
+    );
+  }
+}
+
+// ===== END SELECTION / PRECHECK WIDGETS =====
 
 class StaffChatListScreen extends StatelessWidget {
   const StaffChatListScreen({super.key});
@@ -3091,7 +3643,7 @@ class StaffChatListScreen extends StatelessWidget {
     final groups = [...state.groups]
       ..sort((a, b) => b.pinned.toString().compareTo(a.pinned.toString()));
     return AppScaffold(
-      bottomNav: const StaffBottomNav(current: '/chats'),
+      bottomNav: null,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Header(title: 'Чаты', subtitle: 'Команда на связи'),
         Expanded(
@@ -3123,9 +3675,7 @@ class StaffChatListScreen extends StatelessWidget {
                             Row(children: [
                               Expanded(
                                   child: Text(group.name,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 16))),
+                                      style: T.h3.copyWith(fontWeight: FontWeight.w700, fontSize: 16))),
                               if (group.pinned)
                                 const Icon(Icons.push_pin,
                                     size: 14, color: AppTheme.ink3)
@@ -3133,8 +3683,7 @@ class StaffChatListScreen extends StatelessWidget {
                             Text(last?.text ?? 'Нет сообщений',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    color: AppTheme.ink2, fontSize: 13)),
+                                style: T.priceSmall.copyWith(color: AppTheme.ink2)),
                           ])),
                       const SizedBox(width: 8),
                       Column(
@@ -3144,8 +3693,7 @@ class StaffChatListScreen extends StatelessWidget {
                                 last == null
                                     ? ''
                                     : '${last.timestamp.hour}:${last.timestamp.minute.toString().padLeft(2, '0')}',
-                                style: const TextStyle(
-                                    color: AppTheme.ink3, fontSize: 11)),
+                                style: T.label.copyWith(color: AppTheme.ink3)),
                             const SizedBox(height: 5),
                             if (i == 0)
                               Container(
@@ -3154,10 +3702,7 @@ class StaffChatListScreen extends StatelessWidget {
                                       color: AppTheme.warning,
                                       shape: BoxShape.circle),
                                   child: const Text('2',
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w900))),
+                                      style: T.label)),
                           ]),
                     ]),
                   );
@@ -3175,6 +3720,26 @@ class StaffChatScreen extends StatefulWidget {
 
 class _StaffChatScreenState extends State<StaffChatScreen> {
   final input = TextEditingController();
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    input.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3187,6 +3752,8 @@ class _StaffChatScreenState extends State<StaffChatScreen> {
         : group.type == FeedType.bar
             ? AppTheme.bar
             : AppTheme.ink3;
+
+    _scrollToBottom();
 
     return AppScaffold(
       child: Column(children: [
@@ -3201,13 +3768,9 @@ class _StaffChatScreenState extends State<StaffChatScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                 Text(group.name,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 17)),
+                    style: T.h2.copyWith(fontSize: 17)),
                 const Text('8 онлайн',
-                    style: TextStyle(
-                        color: AppTheme.success,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600)),
+                    style: T.smallSemi),
               ])),
         ]),
         Expanded(
@@ -3217,13 +3780,24 @@ class _StaffChatScreenState extends State<StaffChatScreen> {
                     title: 'Чатик пуст',
                     sub: 'Начните общение — отправьте первое сообщение')
                 : ListView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     itemCount: messages.length,
-                    itemBuilder: (_, i) {
+                    itemBuilder: (ctx, i) {
                       final msg = messages[i];
-                      if (msg.kind == MessageKind.tableCard)
+                      if (msg.kind == MessageKind.tableCard) {
                         return ForwardedTableCard(message: msg);
-                      return ChatBubble(message: msg);
+                      }
+                      if (msg.kind == MessageKind.orderCard) {
+                        return OrderReceiptCard(message: msg);
+                      }
+                      final senderName = state.staff
+                              .firstWhereOrNull(
+                                  (u) => u.id == msg.senderId)
+                              ?.name ??
+                          msg.senderId;
+                      return ChatBubble(
+                          message: msg, senderName: senderName);
                     })),
         Padding(
           padding: const EdgeInsets.only(bottom: 8, top: 8),
@@ -3233,8 +3807,11 @@ class _StaffChatScreenState extends State<StaffChatScreen> {
             const SizedBox(width: 8),
             GestureDetector(
               onTap: () {
-                state.sendMessage(input.text.trim());
+                final text = input.text.trim();
+                if (text.isEmpty) return;
+                state.sendMessage(text);
                 input.clear();
+                _scrollToBottom();
               },
               child: const CircleAvatar(
                   radius: 25,
@@ -3267,7 +3844,7 @@ class _StaffPanelScreenState extends State<StaffPanelScreen>
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      bottomNav: const StaffBottomNav(current: '/panel'),
+      bottomNav: null,
       child: Column(
         children: [
           Header(title: 'Панель', subtitle: 'Управление системой', actions: [
@@ -3295,6 +3872,7 @@ class _StaffPanelScreenState extends State<StaffPanelScreen>
           Expanded(
             child: TabBarView(
               controller: _tabController,
+              physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 _OverviewTab(),
                 const TeamManagementScreen(),
@@ -3419,12 +3997,9 @@ class MenuManagementScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(item.name,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 16)),
+                          style: T.h3.copyWith(fontWeight: FontWeight.w700, fontSize: 16)),
                       Text(item.price.rub,
-                          style: const TextStyle(
-                              color: AppTheme.cta,
-                              fontWeight: FontWeight.w600)),
+                          style: T.bodySemi.copyWith(color: AppTheme.cta)),
                     ],
                   ),
                 ),
@@ -3464,8 +4039,7 @@ void _showMenuForm(BuildContext context, {MenuItem? item}) {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(item == null ? 'Новая позиция' : 'Редактировать позицию',
-                  style: const TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.w800)),
+                  style: T.h1.copyWith(fontSize: 22)),
               const SizedBox(height: 20),
               AppTextField(controller: name, label: 'Название'),
               const SizedBox(height: 12),
@@ -3552,8 +4126,7 @@ class _AccessTab extends StatelessWidget {
   Widget _roleAccessCard(String title, List<(String, bool)> perms) => AppCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title,
-              style:
-                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              style: T.h3.copyWith(fontWeight: FontWeight.w700, fontSize: 16)),
           const SizedBox(height: 12),
           Wrap(
               spacing: 8,
@@ -3572,9 +4145,8 @@ class _AccessTab extends StatelessWidget {
                             color: p.$2 ? AppTheme.success : AppTheme.ink3),
                         const SizedBox(width: 4),
                         Text(p.$1,
-                            style: TextStyle(
+                            style: T.smallSemi.copyWith(
                                 color: p.$2 ? AppTheme.success : AppTheme.ink3,
-                                fontSize: 12,
                                 fontWeight: FontWeight.w700))
                       ])))
                   .toList()),
@@ -3599,8 +4171,7 @@ class Header extends StatelessWidget {
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title, style: Theme.of(context).textTheme.headlineLarge),
           if (subtitle != null)
-            Text(subtitle!,
-                style: const TextStyle(color: AppTheme.ink2, fontSize: 14)),
+            Text(subtitle!, style: T.body.copyWith(color: AppTheme.ink2)),
         ])),
         ...actions,
       ]));
@@ -3643,8 +4214,7 @@ class Avatar extends StatelessWidget {
           borderRadius: BorderRadius.circular(14)),
       child: Center(
           child: Text(initials,
-              style: TextStyle(
-                  color: color ?? AppTheme.cta, fontWeight: FontWeight.w800))),
+              style: T.bodySemi.copyWith(color: color ?? AppTheme.cta, fontWeight: FontWeight.w800))),
     );
   }
 }
@@ -3670,18 +4240,24 @@ class AppTextField extends StatelessWidget {
         obscureText: obscure,
         keyboardType: keyboardType,
         onChanged: onChanged,
+        style: T.body.copyWith(color: AppTheme.ink),
+        cursorColor: AppTheme.cta,
         decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
+          hintText: hint ?? label,
+          hintStyle: T.body.copyWith(color: AppTheme.ink2),
           filled: true,
-          fillColor: AppTheme.card,
+          fillColor: AppTheme.surfaceSunken,
           border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppTheme.separator)),
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none),
           enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppTheme.separator)),
-          contentPadding: const EdgeInsets.all(16),
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none),
+          focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppTheme.cta, width: 1.5)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
       );
 }
@@ -3709,63 +4285,103 @@ class _StaffMenuChips extends StatelessWidget {
   }
 }
 
-class _ChipHeader extends SliverPersistentHeaderDelegate {
-  @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    final state = context.watch<CafeState>();
-    return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: state.categories
-            .map((c) => CategoryChip(
-                label: c,
-                active: state.selectedCategory == c,
-                onTap: () {
-                  state.selectedCategory = c;
-                  state.refresh();
-                }))
-            .toList(),
-      ),
-    );
-  }
-
-  @override
-  double get maxExtent => 58;
-  @override
-  double get minExtent => 58;
-  @override
-  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) =>
-      true;
-}
-
 class ChatBubble extends StatelessWidget {
-  const ChatBubble({super.key, required this.message});
+  const ChatBubble(
+      {super.key, required this.message, this.senderName = ''});
   final ChatMessage message;
+  final String senderName;
   @override
   Widget build(BuildContext context) {
     final own = message.own;
     return Align(
       alignment: own ? Alignment.centerRight : Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment:
+            own ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          if (!own && senderName.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 2),
+              child: Text(senderName,
+                  style: T.label),
+            ),
+          Container(
+            constraints:
+                BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * .78),
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+                color: own ? AppTheme.cta : Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: const [AppTheme.shadowCard]),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(message.text,
+                  style: T.body.copyWith(color: own ? Colors.white : AppTheme.ink)),
+              const SizedBox(height: 4),
+              Text(
+                  '${message.timestamp.hour}:${message.timestamp.minute.toString().padLeft(2, '0')}',
+                  style: T.label.copyWith(color: own ? Colors.white70 : AppTheme.ink3)),
+            ]),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class OrderReceiptCard extends StatelessWidget {
+  const OrderReceiptCard({super.key, required this.message});
+  final ChatMessage message;
+  @override
+  Widget build(BuildContext context) {
+    final state = context.read<CafeState>();
+    final order = state.orders
+        .firstWhereOrNull((o) => o.id == message.refId);
+    final table = order != null
+        ? state.tables.firstWhereOrNull((t) => t.id == order.tableId)
+        : null;
+    final isKitchen = order?.splitTo == FeedType.kitchen;
+    final zoneColor = isKitchen ? AppTheme.warning : AppTheme.bar;
+    final zoneLabel = isKitchen ? 'Кухня' : 'Бар';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       child: Container(
-        constraints:
-            BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * .78),
-        margin: const EdgeInsets.symmetric(vertical: 5),
-        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-            color: own ? AppTheme.cta : Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: const [AppTheme.shadowCard]),
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border(left: BorderSide(color: zoneColor, width: 4)),
+          boxShadow: const [AppTheme.shadowCard],
+        ),
+        padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(message.text,
-              style: TextStyle(color: own ? Colors.white : AppTheme.ink)),
-          const SizedBox(height: 4),
+          Row(children: [
+            const Icon(Icons.receipt_long_outlined, size: 14),
+            const SizedBox(width: 6),
+            Text(
+                'Новый заказ · Стол ${table?.number ?? '??'}',
+                style: T.priceSmall.copyWith(color: zoneColor, fontWeight: FontWeight.w700)),
+          ]),
+          const Divider(height: 16),
+          if (order != null)
+            ...order.items.map((l) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(children: [
+                    Text('${l.quantity}×  ',
+                        style: T.priceSmall.copyWith(fontWeight: FontWeight.w700)),
+                    Expanded(
+                        child: Text(l.item.name,
+                            style: T.priceSmall)),
+                    if (l.modifiers.isNotEmpty)
+                      Text('(${l.modifiers})',
+                          style: T.label.copyWith(color: AppTheme.ink2)),
+                  ]),
+                )),
+          const Divider(height: 16),
           Text(
-              '${message.timestamp.hour}:${message.timestamp.minute.toString().padLeft(2, '0')}',
-              style: TextStyle(
-                  color: own ? Colors.white70 : AppTheme.ink3, fontSize: 11)),
+              '$zoneLabel · ${message.timestamp.hour}:${message.timestamp.minute.toString().padLeft(2, '0')}',
+              style: T.label.copyWith(color: AppTheme.ink2)),
         ]),
       ),
     );
@@ -3786,17 +4402,14 @@ class ForwardedTableCard extends StatelessWidget {
           const Icon(Icons.forward, size: 14, color: AppTheme.tOccupied),
           const SizedBox(width: 8),
           Text('ПЕРЕСЛАНО · Елена',
-              style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.tOccupied))
+              style: T.label.copyWith(color: AppTheme.tOccupied, fontWeight: FontWeight.w800))
         ]),
         const SizedBox(height: 8),
         Text('Стол${table?.number ?? '??'}',
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+            style: T.h2.copyWith(fontSize: 17)),
         const SizedBox(height: 4),
         Text(message.text,
-            style: const TextStyle(fontSize: 13, color: AppTheme.ink2)),
+            style: T.priceSmall.copyWith(color: AppTheme.ink2)),
         const Divider(height: 24),
         AppButton(
             label: 'Открыть стол',
@@ -3826,10 +4439,9 @@ class StaffMemberRow extends StatelessWidget {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(user.name,
-              style:
-                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              style: T.h3.copyWith(fontWeight: FontWeight.w700, fontSize: 16)),
           Text(roleLabel(user.role),
-              style: const TextStyle(color: AppTheme.ink2, fontSize: 13)),
+              style: T.priceSmall.copyWith(color: AppTheme.ink2)),
         ])),
         Container(
             width: 8,
@@ -3859,8 +4471,7 @@ void _showStaffForm(BuildContext context, {AppUser? user}) {
                     20, 20, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   Text(user == null ? 'Новый сотрудник' : 'Редактировать',
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w700)),
+                      style: T.h2),
                   const SizedBox(height: 20),
                   AppTextField(controller: name, label: 'Имя'),
                   const SizedBox(height: 12),
@@ -3906,25 +4517,19 @@ void _showForwardSheet(BuildContext context, CafeTable table) {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Переслать',
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                  Text('Переслать',
+                      style: T.h2.copyWith(fontSize: 20)),
                   const SizedBox(height: 16),
                   AppTextField(
                       controller: comment, label: 'Добавить комментарий...'),
                   const SizedBox(height: 24),
-                  const Text('КУДА ОТПРАВИТЬ',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.ink3)),
+                  const Text('КУДА ОТПРАВИТЬ', style: T.label),
                   const SizedBox(height: 12),
                   ...context.read<CafeState>().groups.map((g) => ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: Avatar(label: g.name),
                         title: Text(g.name,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w600)),
+                            style: T.bodySemi),
                         trailing:
                             const Icon(Icons.send_rounded, color: AppTheme.cta),
                         onTap: () {
@@ -3954,8 +4559,7 @@ void _showDiscussModal(BuildContext context, CafeOrder order) {
             padding: EdgeInsets.fromLTRB(
                 20, 20, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Text('Обсудить заказ',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const Text('Обсудить заказ', style: T.h2),
               const SizedBox(height: 16),
               AppTextField(controller: comment, label: 'Комментарий...'),
               const SizedBox(height: 20),
@@ -3997,32 +4601,19 @@ void _showStaffDishDetails(BuildContext context, MenuItem item) {
                   Row(children: [
                     Expanded(
                         child: Text(item.name,
-                            style: const TextStyle(
-                                fontSize: 22, fontWeight: FontWeight.w800))),
+                            style: T.h1.copyWith(fontSize: 22))),
                     Text(item.price.rub,
-                        style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.cta))
+                        style: T.h2.copyWith(color: AppTheme.cta))
                   ]),
                   const SizedBox(height: 12),
                   Text(item.description,
-                      style:
-                          const TextStyle(color: AppTheme.ink2, fontSize: 15)),
+                      style: T.h3.copyWith(color: AppTheme.ink2)),
                   const SizedBox(height: 20),
-                  const Text('СОСТАВ',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.ink3)),
+                  const Text('СОСТАВ', style: T.label),
                   const SizedBox(height: 4),
-                  Text(item.composition, style: const TextStyle(fontSize: 14)),
+                  Text(item.composition, style: T.body),
                   const SizedBox(height: 20),
-                  const Text('АЛЛЕРГЕНЫ',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.ink3)),
+                  const Text('АЛЛЕРГЕНЫ', style: T.label),
                   const SizedBox(height: 8),
                   Wrap(
                       spacing: 8,
@@ -4036,10 +4627,7 @@ void _showStaffDishDetails(BuildContext context, MenuItem item) {
                                           .withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(10)),
                                   child: const Text('Без аллергенов',
-                                      style: TextStyle(
-                                          color: AppTheme.success,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 12)))
+                                      style: T.smallSemi))
                             ]
                           : item.allergens
                               .map((a) => NoteChip(label: a))
@@ -4088,19 +4676,15 @@ class _DishDetailSheetState extends State<DishDetailSheet> {
             Row(children: [
               Expanded(
                   child: Text(widget.item.name,
-                      style: const TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.w700))),
+                      style: T.h1.copyWith(fontSize: 20))),
               Text(widget.item.price.rub,
-                  style: const TextStyle(
-                      fontSize: 18,
-                      color: AppTheme.cta,
-                      fontWeight: FontWeight.w700))
+                  style: T.h2.copyWith(color: AppTheme.cta))
             ]),
             const SizedBox(height: 20),
             Row(children: [
               const Expanded(
                   child: Text('Количество',
-                      style: TextStyle(fontWeight: FontWeight.w600))),
+                      style: T.bodySemi)),
               QuantityStepper(
                   value: qty, onChanged: (v) => setState(() => qty = v))
             ]),
@@ -4147,8 +4731,7 @@ class _LiveTimerState extends State<_LiveTimer> {
     final d = DateTime.now().difference(widget.createdAt);
     return Text(
         '${d.inMinutes.toString().padLeft(2, '0')}:${(d.inSeconds % 60).toString().padLeft(2, '0')}',
-        style: GoogleFonts.robotoMono(
-            color: widget.color, fontWeight: FontWeight.w700, fontSize: 16));
+        style: T.timer.copyWith(color: widget.color, fontSize: 16));
   }
 }
 
@@ -4227,21 +4810,6 @@ class BlurBar extends StatelessWidget {
       );
 }
 
-class _Pill extends StatelessWidget {
-  const _Pill(this.label, this.color);
-  final String label;
-  final Color color;
-  @override
-  Widget build(BuildContext context) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-          color: color.withValues(alpha: .14),
-          borderRadius: BorderRadius.circular(8)),
-      child: Text(label,
-          style: TextStyle(
-              color: color, fontWeight: FontWeight.w700, fontSize: 13)));
-}
-
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -4254,8 +4822,7 @@ class SettingsScreen extends StatelessWidget {
         backgroundColor: AppTheme.bg,
         elevation: 0,
         leading: const BackButton(),
-        title: const Text('Настройки',
-            style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text('Настройки', style: T.h2),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -4360,7 +4927,7 @@ class SettingsScreen extends StatelessWidget {
                 Navigator.pop(c);
               },
               child: const Text('Сбросить',
-                  style: TextStyle(color: AppTheme.danger))),
+                  style: T.bodySemi)),
         ],
       ),
     );
@@ -4378,10 +4945,7 @@ class _SettingsSection extends StatelessWidget {
           Padding(
               padding: const EdgeInsets.only(left: 12, top: 24, bottom: 8),
               child: Text(title.toUpperCase(),
-                  style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.ink3))),
+                  style: T.label.copyWith(color: AppTheme.ink3))),
           AppCard(padding: EdgeInsets.zero, child: Column(children: children)),
         ],
       );
@@ -4396,11 +4960,10 @@ class _SettingsRow extends StatelessWidget {
       {required this.label, this.value, this.trailing, this.onTap});
   @override
   Widget build(BuildContext context) => ListTile(
-        title: Text(label,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+        title: Text(label, style: T.h3.copyWith(fontWeight: FontWeight.w500)),
         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
           if (value != null)
-            Text(value!, style: const TextStyle(color: AppTheme.ink2)),
+            Text(value!, style: T.body.copyWith(color: AppTheme.ink2)),
           if (trailing != null) trailing!,
         ]),
         onTap: onTap,
@@ -4415,8 +4978,7 @@ class _SettingsToggle extends StatelessWidget {
       {required this.label, required this.value, required this.onChanged});
   @override
   Widget build(BuildContext context) => SwitchListTile(
-        title: Text(label,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+        title: Text(label, style: T.h3.copyWith(fontWeight: FontWeight.w500)),
         value: value,
         onChanged: onChanged,
         activeColor: AppTheme.cta,
@@ -4440,8 +5002,7 @@ class _SettingsSegmented extends StatelessWidget {
           children: [
             Expanded(
                 child: Text(label,
-                    style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w500))),
+                    style: T.h3.copyWith(fontWeight: FontWeight.w500))),
             Container(
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
@@ -4468,8 +5029,7 @@ class _SettingsSegmented extends StatelessWidget {
                                         ]
                                       : null),
                               child: Text(options[i],
-                                  style: TextStyle(
-                                      fontSize: 13,
+                                  style: T.priceSmall.copyWith(
                                       fontWeight: selected == i
                                           ? FontWeight.w600
                                           : FontWeight.w400)),
@@ -4495,7 +5055,7 @@ class _EmptyState extends StatelessWidget {
             Icon(icon, size: 64, color: AppTheme.success.withValues(alpha: .3)),
             const SizedBox(height: 12),
             Text(title, style: Theme.of(context).textTheme.titleMedium),
-            Text(sub, style: const TextStyle(color: AppTheme.ink2)),
+            Text(sub, style: T.body.copyWith(color: AppTheme.ink2)),
           ],
         ),
       );
