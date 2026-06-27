@@ -5,40 +5,16 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="02c560ca-14df-44b8-818b-54dab23a84aa" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/AUDIT.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web_menu" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/libraries/Flutter_Plugins.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/libraries/Flutter_Plugins.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/design/.thumbnail" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/design/CafeConnect Prototype standalone-src.dc.html" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/design/CafeConnect Prototype-print-1h8pkkq.dc.html" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/design/CafeConnect Prototype.dc.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/.thumbnail" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/CafeConnect Staff-print-1i85uea.dc.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/CafeConnect Staff.dc.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/CafeConnect_redesign_prompt_EN.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/CafeConnect_редизайн_промт.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/Canvas.dc.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/refs/mockups.pdf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/refs/prompt.pdf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/01-chart.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/01-dish.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/01-gestures.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/01-overlays.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/01-reels.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/01-verify.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/02-chart.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/02-dish.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/02-gestures.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/02-overlays.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/02-reels.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/02-verify.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/03-verify.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/panel.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/v2-addtable.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/v2-detail.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/v2-precheck.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/shots/v2-precheck2.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design/FASHION/cafeconnect-flutter/project/support.js" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/design/desighbetter/cafeconnect-flutter/README.md" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/design/desighbetter/cafeconnect-flutter/project/.thumbnail" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/design/desighbetter/cafeconnect-flutter/project/CafeConnect Staff-print-1i85uea.dc.html" beforeDir="false" />
@@ -65,21 +41,10 @@
       <change beforePath="$PROJECT_DIR$/design/uploads/CafeConnect_Проект_с_макетами (1).pdf" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/design/uploads/CafeConnect_Промт_для_ИИ.pdf" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/flutter_01.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/landing/css/style.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/landing/index.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/landing/js/main.js" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/main.dart" afterDir="false" />
-
-      <change beforePath="$PROJECT_DIR$/lib/models/models.dart" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/models/models.g.dart" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/chats_screen.dart" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/menu_screen.dart" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/orders_screen.dart" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/panel_screen.dart" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/tables_screen.dart" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/macos/Flutter/GeneratedPluginRegistrant.swift" beforeDir="false" afterPath="$PROJECT_DIR$/macos/Flutter/GeneratedPluginRegistrant.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/test/widget_test.dart" beforeDir="false" afterPath="$PROJECT_DIR$/test/widget_test.dart" afterDir="false" />
-
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -133,7 +98,7 @@
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
     "dart.analysis.tool.window.visible": "false",
-    "git-widget-placeholder": "fix/alpha-v0.1.0",
+    "git-widget-placeholder": "Merging Uluk",
     "ignore.virus.scanning.warn.message": "true",
     "io.flutter.project.isFirstOpen": "true",
     "kotlin-language-version-configured": "true",
