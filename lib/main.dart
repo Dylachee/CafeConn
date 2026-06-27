@@ -152,7 +152,7 @@ class AppTheme {
       textTheme: base.textTheme.copyWith(
         headlineLarge: const TextStyle(
             fontFamily: 'Inter',
-            fontSize: 28,
+            fontSize: 30,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.6),
         titleLarge: const TextStyle(
@@ -182,6 +182,19 @@ class AppTheme {
 
 // ===== TYPOGRAPHY SCALE =====
 class T {
+  // Screen-level titles — 30px bold espresso, matches design
+  static const screenTitle = TextStyle(
+      fontFamily: 'Inter', fontSize: 30, fontWeight: FontWeight.w700,
+      letterSpacing: -0.6, color: AppTheme.ink);
+  // Section headings inside screens
+  static const sectionTitle = TextStyle(
+      fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.w700,
+      color: AppTheme.ink);
+  // Secondary subtitle — ink at 50% opacity (warm, not grey)
+  static TextStyle get subtitle => const TextStyle(
+      fontFamily: 'Inter', fontSize: 13.5, fontWeight: FontWeight.w400,
+      color: Color(0x801E1B16));
+
   static const h1 = TextStyle(fontFamily: 'Inter', fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.ink);
   static const h2 = TextStyle(fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.ink);
   static const h3 = TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.ink);
@@ -1159,6 +1172,155 @@ class _AppButtonState extends State<AppButton> {
   }
 }
 
+// ===== DESIGN-SYSTEM BUTTONS =====
+// Espresso primary: dark bg, ALWAYS white label — contrast can never break.
+class PrimaryButton extends StatelessWidget {
+  const PrimaryButton({
+    super.key,
+    required this.label,
+    this.icon,
+    required this.onTap,
+    this.enabled = true,
+    this.height = 52,
+  });
+  final String label;
+  final IconData? icon;
+  final VoidCallback? onTap;
+  final bool enabled;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final on = enabled && onTap != null;
+    return GestureDetector(
+      onTap: on
+          ? () {
+              HapticFeedback.lightImpact();
+              onTap!();
+            }
+          : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        height: height,
+        decoration: BoxDecoration(
+          color: on ? const Color(0xFF221F1A) : const Color(0xFFDCD6CB),
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: on
+              ? [
+                  BoxShadow(
+                      color: const Color(0xFF221F1A).withValues(alpha: 0.30),
+                      blurRadius: 22,
+                      offset: const Offset(0, 8))
+                ]
+              : null,
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          if (icon != null) ...[
+            Icon(icon, size: 19,
+                color: on ? Colors.white : const Color(0xFF8A8275)),
+            const SizedBox(width: 9),
+          ],
+          Text(label,
+              style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w700,
+                  color: on ? Colors.white : const Color(0xFF8A8275))),
+        ]),
+      ),
+    );
+  }
+}
+
+// Ghost button: cream bg, ink label — for "Отмена" and secondary actions.
+class GhostButton extends StatelessWidget {
+  const GhostButton({
+    super.key,
+    required this.label,
+    this.icon,
+    required this.onTap,
+    this.height = 48,
+  });
+  final String label;
+  final IconData? icon;
+  final VoidCallback onTap;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          color: AppTheme.bg,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: AppTheme.separator),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          if (icon != null) ...[
+            Icon(icon, size: 18, color: AppTheme.ink),
+            const SizedBox(width: 8),
+          ],
+          Text(label,
+              style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.ink)),
+        ]),
+      ),
+    );
+  }
+}
+
+// Danger button: red bg, white label — for destructive actions.
+class DangerButton extends StatelessWidget {
+  const DangerButton({
+    super.key,
+    required this.label,
+    this.icon,
+    required this.onTap,
+    this.height = 48,
+  });
+  final String label;
+  final IconData? icon;
+  final VoidCallback onTap;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        onTap();
+      },
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          color: AppTheme.danger,
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          if (icon != null) ...[
+            Icon(icon, size: 18, color: Colors.white),
+            const SizedBox(width: 8),
+          ],
+          Text(label,
+              style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white)),
+        ]),
+      ),
+    );
+  }
+}
+
 class AppCard extends StatelessWidget {
   const AppCard(
       {super.key,
@@ -1534,7 +1696,7 @@ class MenuGridItem extends StatelessWidget {
           Text(item.name,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium),
+              style: T.bodySemi.copyWith(fontWeight: FontWeight.w600, fontSize: 15)),
           const SizedBox(height: 4),
           Row(
             children: [
@@ -1889,8 +2051,7 @@ class _WaiterTableGridScreenState extends State<WaiterTableGridScreen> {
                             GoRouter.of(context).push('/table-details');
                           },
                           onLongPress: () {
-                            HapticFeedback.mediumImpact();
-                            _showTableOptions(context, table);
+                            _showQuickCheck(context, table);
                           },
                         );
                       },
@@ -1898,55 +2059,6 @@ class _WaiterTableGridScreenState extends State<WaiterTableGridScreen> {
                   ),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showTableOptions(BuildContext context, CafeTable table) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: const BoxDecoration(
-            color: AppTheme.bg,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Стол ${table.number}',
-                style: T.h2.copyWith(fontSize: 20)),
-            const SizedBox(height: 20),
-            AppButton(
-                label: 'Быстрый чек',
-                icon: Icons.receipt_long,
-                kind: ButtonKind.secondary,
-                onPressed: () {
-                  Navigator.pop(context);
-                  _showQuickCheck(context, table);
-                }),
-            const SizedBox(height: 12),
-            AppButton(
-                label: 'Редактировать стол',
-                icon: Icons.edit,
-                kind: ButtonKind.secondary,
-                onPressed: () {
-                  Navigator.pop(context);
-                  _showTableForm(context, table: table);
-                }),
-            const SizedBox(height: 12),
-            AppButton(
-                label: 'Удалить стол',
-                icon: Icons.delete,
-                kind: ButtonKind.ghost,
-                color: AppTheme.danger,
-                onPressed: () {
-                  context.read<CafeState>().deleteTable(table);
-                  Navigator.pop(context);
-                }),
-            const SizedBox(height: 20),
-          ],
-        ),
       ),
     );
   }
@@ -2088,7 +2200,7 @@ class _WaiterTableGridScreenState extends State<WaiterTableGridScreen> {
   }
 }
 
-class TableCard extends StatelessWidget {
+class TableCard extends StatefulWidget {
   const TableCard(
       {super.key,
       required this.table,
@@ -2101,68 +2213,98 @@ class TableCard extends StatelessWidget {
   final int index;
 
   @override
+  State<TableCard> createState() => _TableCardState();
+}
+
+class _TableCardState extends State<TableCard> {
+  Timer? _holdTimer;
+  bool _held = false;
+
+  @override
+  void dispose() {
+    _holdTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final state = context.read<CafeState>();
-    final color = statusColor(table.status);
-    final isLate = table.status == TableStatus.late;
+    final color = statusColor(widget.table.status);
+    final isLate = widget.table.status == TableStatus.late;
 
-    return AppCard(
-      index: index,
-      padding: const EdgeInsets.all(12),
-      onTap: onTap,
-      borderColor: isLate ? AppTheme.danger : null,
-      child: Stack(
-        children: [
-          Positioned(
-              top: 0,
-              left: 0,
-              child: Text('#${table.number}',
-                  style: T.label.copyWith(color: AppTheme.ink3, fontSize: 10))),
-          Positioned(top: 0, right: 0, child: StatusBadge(table.status)),
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('${table.number}',
-                    style: T.h1.copyWith(fontSize: 32)),
-                const SizedBox(height: 4),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8)),
-                  child: Text(statusLabel(table.status),
-                      style: T.label.copyWith(color: color, fontSize: 10, fontWeight: FontWeight.w800)),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Text(
-                table.status == TableStatus.free
-                    ? 'свободен'
-                    : state
-                        .tableCart(table.id)
-                        .fold(0.0, (s, l) => s + l.total)
-                        .rub,
-                style: T.label.copyWith(color: AppTheme.ink2),
+    return GestureDetector(
+      onTapDown: (_) {
+        _held = false;
+        _holdTimer = Timer(const Duration(milliseconds: 380), () {
+          _held = true;
+          HapticFeedback.mediumImpact();
+          widget.onLongPress();
+        });
+      },
+      onTapUp: (_) {
+        _holdTimer?.cancel();
+        if (!_held) {
+          HapticFeedback.lightImpact();
+          widget.onTap();
+        }
+      },
+      onTapCancel: () {
+        _holdTimer?.cancel();
+        _held = false;
+      },
+      child: AppCard(
+        index: widget.index,
+        padding: const EdgeInsets.all(12),
+        borderColor: isLate ? AppTheme.danger : null,
+        child: Stack(
+          children: [
+            Positioned(
+                top: 0,
+                left: 0,
+                child: Text('#${widget.table.number}',
+                    style: T.label.copyWith(color: AppTheme.ink3, fontSize: 10))),
+            Positioned(top: 0, right: 0, child: StatusBadge(widget.table.status)),
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('${widget.table.number}',
+                      style: T.h1.copyWith(fontSize: 32)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8)),
+                    child: Text(statusLabel(widget.table.status),
+                        style: T.label.copyWith(color: color, fontSize: 10, fontWeight: FontWeight.w800)),
+                  ),
+                ],
               ),
             ),
-          ),
-          GestureDetector(
-            onLongPress: onLongPress,
-            child: Container(color: Colors.transparent),
-          ),
-        ],
-      ),
-    )
-        .animate(onPlay: isLate ? (c) => c.repeat(reverse: true) : null)
-        .shimmer(duration: 2.seconds, color: Colors.white24);
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Text(
+                  widget.table.status == TableStatus.free
+                      ? 'свободен'
+                      : state
+                          .tableCart(widget.table.id)
+                          .fold(0.0, (s, l) => s + l.total)
+                          .rub,
+                  style: T.label.copyWith(color: AppTheme.ink2),
+                ),
+              ),
+            ),
+          ],
+        ),
+      )
+          .animate(onPlay: isLate ? (c) => c.repeat(reverse: true) : null)
+          .shimmer(duration: 2.seconds, color: Colors.white24),
+    );
   }
 }
 
@@ -2224,10 +2366,8 @@ class QuickCheckOverlay extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              Text('Стол${table.number}',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineLarge),
+                              Text('Стол ${table.number}',
+                                  style: T.screenTitle),
                               const Spacer(),
                               StatusBadge(table.status, showLabel: true),
                             ],
@@ -2272,16 +2412,17 @@ class QuickCheckOverlay extends StatelessWidget {
                           Row(
                             children: [
                               Expanded(
-                                  child: AppButton(
+                                  child: GhostButton(
                                       label: 'Переслать',
-                                      kind: ButtonKind.secondary,
-                                      onPressed: () =>
+                                      icon: Icons.forward,
+                                      onTap: () =>
                                           _showForwardSheet(context, table))),
                               const SizedBox(width: 12),
                               Expanded(
-                                  child: AppButton(
+                                  child: PrimaryButton(
                                       label: 'Открыть',
-                                      onPressed: () {
+                                      icon: Icons.table_restaurant,
+                                      onTap: () {
                                         Navigator.pop(context);
                                         state.currentTable = table;
                                         GoRouter.of(context)
@@ -2335,10 +2476,10 @@ class _TableDetailsScreenState extends State<TableDetailsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Стол${table.number}',
-                        style: Theme.of(context).textTheme.headlineLarge),
+                    Text('Стол ${table.number}',
+                        style: T.screenTitle),
                     Text('Открыт 14:05 · Елена',
-                        style: T.priceSmall.copyWith(color: AppTheme.ink2)),
+                        style: T.subtitle),
                   ],
                 ),
               ),
@@ -2747,9 +2888,9 @@ class _WaiterOrderScreenState extends State<WaiterOrderScreen> {
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(_selMode ? 'Выбрано: ${_selQty.length}' : 'Стол ${table.number}',
-                      style: Theme.of(context).textTheme.headlineLarge),
+                      style: T.screenTitle),
                   Text(_selMode ? total.rub : 'Добавить в заказ',
-                      style: T.priceSmall.copyWith(color: AppTheme.ink2)),
+                      style: T.subtitle),
                 ]),
               ),
             ]),
@@ -2799,15 +2940,9 @@ class UnifiedOrderFeedScreen extends StatefulWidget {
   State<UnifiedOrderFeedScreen> createState() => _UnifiedOrderFeedScreenState();
 }
 
-class _UnifiedOrderFeedScreenState extends State<UnifiedOrderFeedScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() => setState(() {}));
-  }
+class _UnifiedOrderFeedScreenState extends State<UnifiedOrderFeedScreen> {
+  // 0 = kitchen, 1 = bar — tap-only, no swipe (avoids conflict with main PageView)
+  int _zone = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -2828,43 +2963,38 @@ class _UnifiedOrderFeedScreenState extends State<UnifiedOrderFeedScreen>
           Header(
               title: 'Заказы',
               subtitle: '${kitchenOrders.length + barOrders.length} активных'),
+          // Tap-only segmented control — no swipe widget, no gesture conflict
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
                 color: AppTheme.surfaceSunken,
                 borderRadius: BorderRadius.circular(14)),
-            child: TabBar(
-              controller: _tabController,
-              indicator: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(11),
-                  boxShadow: const [AppTheme.shadowCard]),
-              labelColor: AppTheme.ink,
-              unselectedLabelColor: AppTheme.ink2,
-              tabs: [
-                Tab(
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.restaurant,
-                      size: 16, color: AppTheme.warning),
-                  const SizedBox(width: 8),
-                  Text('КУХНЯ (${kitchenOrders.length})')
-                ])),
-                Tab(
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.local_bar, size: 16, color: AppTheme.bar),
-                  const SizedBox(width: 8),
-                  Text('БАР (${barOrders.length})')
-                ])),
-              ],
-            ),
+            child: Row(children: [
+              _ZoneTab(
+                label: 'КУХНЯ',
+                count: kitchenOrders.length,
+                icon: Icons.restaurant,
+                iconColor: AppTheme.warning,
+                selected: _zone == 0,
+                onTap: () => setState(() => _zone = 0),
+              ),
+              _ZoneTab(
+                label: 'БАР',
+                count: barOrders.length,
+                icon: Icons.local_bar,
+                iconColor: AppTheme.bar,
+                selected: _zone == 1,
+                onTap: () => setState(() => _zone = 1),
+              ),
+            ]),
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
+            child: IndexedStack(
+              index: _zone,
               children: [
                 kitchenOrders.isEmpty
-                    ? _EmptyState(
+                    ? const _EmptyState(
                         icon: Icons.check_circle_outline,
                         title: 'Всё готово',
                         sub: 'Нет активных заказов на кухне')
@@ -2873,7 +3003,7 @@ class _UnifiedOrderFeedScreenState extends State<UnifiedOrderFeedScreen>
                         itemBuilder: (_, i) =>
                             OrderCard(order: kitchenOrders[i], index: i)),
                 barOrders.isEmpty
-                    ? _EmptyState(
+                    ? const _EmptyState(
                         icon: Icons.check_circle_outline,
                         title: 'Всё готово',
                         sub: 'Нет активных заказов в баре')
@@ -2885,6 +3015,49 @@ class _UnifiedOrderFeedScreenState extends State<UnifiedOrderFeedScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Tap-only zone tab for КУХНЯ/БАР — replaces swipeable TabBar
+class _ZoneTab extends StatelessWidget {
+  const _ZoneTab({
+    required this.label,
+    required this.count,
+    required this.icon,
+    required this.iconColor,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label;
+  final int count;
+  final IconData icon;
+  final Color iconColor;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+              color: selected ? Colors.white : Colors.transparent,
+              borderRadius: BorderRadius.circular(11),
+              boxShadow: selected ? const [AppTheme.shadowCard] : null),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 16, color: iconColor),
+            const SizedBox(width: 8),
+            Text('$label ($count)',
+                style: T.bodySemi.copyWith(
+                    color: selected ? AppTheme.ink : AppTheme.ink2,
+                    fontSize: 13)),
+          ]),
+        ),
       ),
     );
   }
@@ -2969,10 +3142,7 @@ class OrderCard extends StatelessWidget {
                             label: order.status == OrderStatus.ready
                                 ? 'Завершить'
                                 : 'Готово',
-                            onPressed: () {
-                              state.markReady(order);
-                              context.go('/tables');
-                            })),
+                            onPressed: () => state.markReady(order))),
                     const SizedBox(width: 12),
                     AppButton(
                         label: '',
@@ -3301,20 +3471,19 @@ class _SelectionBar extends StatelessWidget {
                 style: T.h2),
           ]),
         ),
-        TextButton(
-          onPressed: onCancel,
-          child: const Text('Отмена', style: T.body),
+        GhostButton(
+          label: 'Отмена',
+          onTap: onCancel,
+          height: 44,
         ),
-        const SizedBox(width: 8),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.cta,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 120,
+          child: PrimaryButton(
+            label: 'Далее →',
+            height: 44,
+            onTap: onNext,
           ),
-          onPressed: onNext,
-          child: const Text('Далее →', style: T.bodySemi),
         ),
       ]),
     );
@@ -3503,21 +3672,14 @@ class _PrecheckSheetState extends State<_PrecheckSheet> {
         Padding(
           padding: EdgeInsets.fromLTRB(
               20, 0, 20, MediaQuery.viewPaddingOf(context).bottom + 16),
-          child: SizedBox(
+          child: PrimaryButton(
+            label: 'ОТПРАВИТЬ ЗАКАЗ',
+            icon: Icons.send,
             height: 52,
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    _tableId != null ? AppTheme.cta : AppTheme.separator,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-              ),
-              onPressed: _tableId == null ? null : () => _confirm(context, state),
-              child: const Text('ОТПРАВИТЬ ЗАКАЗ',
-                  style: T.bodySemi),
-            ),
+            enabled: _items.isNotEmpty && _tableId != null,
+            onTap: _items.isNotEmpty && _tableId != null
+                ? () => _confirm(context, state)
+                : null,
           ),
         ),
       ]),
@@ -3543,11 +3705,13 @@ class _PrecheckSheetState extends State<_PrecheckSheet> {
     Navigator.pop(context);
     widget.onConfirmed?.call();
 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(
-          'Заказ на Стол ${table.number} отправлен · Кухня $kitchenCount · Бар $barCount'),
-      backgroundColor: AppTheme.success,
-    ));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            'Заказ на Стол ${table.number} отправлен · Кухня $kitchenCount · Бар $barCount'),
+        backgroundColor: AppTheme.success,
+      ));
+    }
   }
 }
 
@@ -3755,6 +3919,8 @@ class _StaffChatScreenState extends State<StaffChatScreen> {
 
     _scrollToBottom();
 
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+
     return AppScaffold(
       child: Column(children: [
         Row(children: [
@@ -3800,7 +3966,8 @@ class _StaffChatScreenState extends State<StaffChatScreen> {
                           message: msg, senderName: senderName);
                     })),
         Padding(
-          padding: const EdgeInsets.only(bottom: 8, top: 8),
+          padding: EdgeInsets.only(
+              bottom: keyboardInset > 0 ? keyboardInset + 8 : 8, top: 8),
           child: Row(children: [
             Expanded(
                 child: AppTextField(controller: input, label: 'Сообщение...')),
@@ -4169,9 +4336,9 @@ class Header extends StatelessWidget {
         Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: Theme.of(context).textTheme.headlineLarge),
+          Text(title, style: T.screenTitle),
           if (subtitle != null)
-            Text(subtitle!, style: T.body.copyWith(color: AppTheme.ink2)),
+            Text(subtitle!, style: T.subtitle),
         ])),
         ...actions,
       ]));
@@ -4185,8 +4352,7 @@ class SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
       padding: const EdgeInsets.only(top: 20, bottom: 10),
       child: Row(children: [
-        Expanded(
-            child: Text(title, style: Theme.of(context).textTheme.titleLarge)),
+        Expanded(child: Text(title, style: T.sectionTitle)),
         if (action != null)
           AppButton(label: 'Все', kind: ButtonKind.ghost, onPressed: action),
       ]));
@@ -5054,7 +5220,7 @@ class _EmptyState extends StatelessWidget {
           children: [
             Icon(icon, size: 64, color: AppTheme.success.withValues(alpha: .3)),
             const SizedBox(height: 12),
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            Text(title, style: T.h2),
             Text(sub, style: T.body.copyWith(color: AppTheme.ink2)),
           ],
         ),
